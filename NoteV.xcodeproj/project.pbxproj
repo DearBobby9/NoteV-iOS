@@ -1,0 +1,664 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05B28527966D2F6FDF024A75 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = BC152B79DBB55C1715D7A091 /* MWDATCamera */; };
+		22D39271B4619B58D040D370 /* NotesResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369FC04B08DE705AA9774885 /* NotesResultView.swift */; };
+		29E6CB3D87A8607521571F5E /* TranscriptSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C725368C366A110A6E92096B /* TranscriptSegment.swift */; };
+		377F8F18942E4CD475D3F0FC /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4D2BBBF7B576405719CACBDC /* MWDATCore */; };
+		39438970A6DC57B79D351745 /* FramePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ABBF48B47823E60ED467485 /* FramePipeline.swift */; };
+		3ADAAC7575712CD8E5FCFE19 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757EAB6DF748CCE482C9B65B /* AppState.swift */; };
+		3DB837559E2DE0F4F2FDDB2D /* BookmarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5319932E7050917D0E212B /* BookmarkDetector.swift */; };
+		46F02D5711FB7A248955B619 /* TimestampedFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */; };
+		4DB73242C8CD03FCD3B13F4E /* StructuredNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */; };
+		58A3E9459951871E2E70C8C1 /* BookmarkIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */; };
+		5BEB5FD6F8763E8C7CF99ACD /* FrameThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */; };
+		5E85350915AF55906B622CB3 /* StartSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */; };
+		6B24661D8255645208F4A795 /* NoteParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5AD5190EAB735441675978 /* NoteParser.swift */; };
+		6FE7180C6E30852EEF0E5714 /* NoteVConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */; };
+		71F748C979DD6E38A07183F5 /* DeepgramService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */; };
+		73E4CBC73A172F3621788948 /* LiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */; };
+		7772E519ACA8F25B89B76CCA /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */; };
+		7A8EA1803E62779933FA0AA8 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F085C176BFB0A39B7017680 /* Bookmark.swift */; };
+		874B73227021ED236318CCDF /* CaptureProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 217462CC4060162CF7729AD4 /* CaptureProvider.swift */; };
+		89762E0EB9F0C95A6FF2DB74 /* PhoneCaptureProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A02E25F4BE74BB80C3AE02 /* PhoneCaptureProvider.swift */; };
+		8DCC7820CBE2E9748511A851 /* NoteVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDD06346A96F08E46C6BE83 /* NoteVApp.swift */; };
+		8E86616CDE14C80BC25F7043 /* SessionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFAD7E6334C6D2841D53CB3C /* SessionData.swift */; };
+		9680CBD3C56862D94C807843 /* APIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8755CFBEDC1823B02FD63328 /* APIKeys.swift */; };
+		9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */; };
+		A203C5DE2F508C3E0BE37EAE /* MultimodalNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */; };
+		A6356672B6E892B616ED3DDA /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */; };
+		AAEA224B9B7ACE3A17000248 /* GlassesCaptureProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E54FE0358BCCDFC27C015E4 /* GlassesCaptureProvider.swift */; };
+		BF638DF40D63791BCBF8E07B /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BEEB312589E4CCC60C834E /* SessionListView.swift */; };
+		C143CDAE521D36B4BC316D8B /* ImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60A1FE3F2BB02E37860AA66 /* ImageStore.swift */; };
+		C22EDBBA510E8D43CB5758B0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 11FA1F9E3D1ABA641FA82414 /* Assets.xcassets */; };
+		C2D025977A5F0D9A965E1584 /* NoteGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48E10FCB6AA2570ACB355F09 /* NoteGenerator.swift */; };
+		CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */; };
+		DC1D85E76C415E925C552014 /* TranscriptScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */; };
+		DE75495729E27E32521FCCD0 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248F422AAA868FE86086AF8E /* CaptureManager.swift */; };
+		DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A38C3323D6117ACF2EDD313 /* SessionStore.swift */; };
+		E49FA5D981B96B3955A638A0 /* AudioChunk.swift in Sources */ = {isa = PBXBuildFile; fileRef = D060840D9639412421E65150 /* AudioChunk.swift */; };
+		FC43D9E7B99DF01CDB77B71E /* AudioPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4AB736972370B755A7AEF826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DD7A2F4C2D4126F20B558580 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5B868756BEABF01D17A43A9A;
+			remoteInfo = NoteV;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		11FA1F9E3D1ABA641FA82414 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		12BEEB312589E4CCC60C834E /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
+		17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPipeline.swift; sourceTree = "<group>"; };
+		217462CC4060162CF7729AD4 /* CaptureProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureProvider.swift; sourceTree = "<group>"; };
+		248F422AAA868FE86086AF8E /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
+		26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
+		2ABBF48B47823E60ED467485 /* FramePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePipeline.swift; sourceTree = "<group>"; };
+		30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkIndicator.swift; sourceTree = "<group>"; };
+		3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameThumbnailView.swift; sourceTree = "<group>"; };
+		369FC04B08DE705AA9774885 /* NotesResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesResultView.swift; sourceTree = "<group>"; };
+		3B5319932E7050917D0E212B /* BookmarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkDetector.swift; sourceTree = "<group>"; };
+		3E54FE0358BCCDFC27C015E4 /* GlassesCaptureProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesCaptureProvider.swift; sourceTree = "<group>"; };
+		48E10FCB6AA2570ACB355F09 /* NoteGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteGenerator.swift; sourceTree = "<group>"; };
+		4DBC2F6F94FECC10A5FF9CC9 /* NoteV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NoteV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C12E69A24CFABD6D9995599 /* NoteV.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NoteV.entitlements; sourceTree = "<group>"; };
+		6F085C176BFB0A39B7017680 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
+		757EAB6DF748CCE482C9B65B /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		7A38C3323D6117ACF2EDD313 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		8755CFBEDC1823B02FD63328 /* APIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeys.swift; sourceTree = "<group>"; };
+		88A02E25F4BE74BB80C3AE02 /* PhoneCaptureProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneCaptureProvider.swift; sourceTree = "<group>"; };
+		8A4F215A20E712B3C9653B3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepgramService.swift; sourceTree = "<group>"; };
+		8F5AD5190EAB735441675978 /* NoteParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteParser.swift; sourceTree = "<group>"; };
+		9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteVConfig.swift; sourceTree = "<group>"; };
+		AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredNotes.swift; sourceTree = "<group>"; };
+		B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptScrollView.swift; sourceTree = "<group>"; };
+		B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
+		BFAD7E6334C6D2841D53CB3C /* SessionData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionData.swift; sourceTree = "<group>"; };
+		C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultimodalNoteView.swift; sourceTree = "<group>"; };
+		C725368C366A110A6E92096B /* TranscriptSegment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegment.swift; sourceTree = "<group>"; };
+		CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimestampedFrame.swift; sourceTree = "<group>"; };
+		D060840D9639412421E65150 /* AudioChunk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioChunk.swift; sourceTree = "<group>"; };
+		D60A1FE3F2BB02E37860AA66 /* ImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStore.swift; sourceTree = "<group>"; };
+		D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionView.swift; sourceTree = "<group>"; };
+		DFDD06346A96F08E46C6BE83 /* NoteVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteVApp.swift; sourceTree = "<group>"; };
+		E9CBDD4E2F833584B2EDA9D2 /* NoteVTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NoteVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteVTests.swift; sourceTree = "<group>"; };
+		EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
+		EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartSessionView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		53216421DF14DB9418796F84 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				377F8F18942E4CD475D3F0FC /* MWDATCore in Frameworks */,
+				05B28527966D2F6FDF024A75 /* MWDATCamera in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06366BF83B21DC2A7A45C7A3 /* Processing */ = {
+			isa = PBXGroup;
+			children = (
+				17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */,
+				3B5319932E7050917D0E212B /* BookmarkDetector.swift */,
+				2ABBF48B47823E60ED467485 /* FramePipeline.swift */,
+				B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */,
+			);
+			path = Processing;
+			sourceTree = "<group>";
+		};
+		1A135C77DD17B2620B44909B /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				D60A1FE3F2BB02E37860AA66 /* ImageStore.swift */,
+				7A38C3323D6117ACF2EDD313 /* SessionStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		2F85E1EA496BB3071D18951A /* NoteVTests */ = {
+			isa = PBXGroup;
+			children = (
+				E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */,
+			);
+			path = NoteVTests;
+			sourceTree = "<group>";
+		};
+		31B283C72CBCD5703BBB8689 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				8755CFBEDC1823B02FD63328 /* APIKeys.swift */,
+				8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */,
+				EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		6B384CC7FAF808B1D9798B85 /* NoteV */ = {
+			isa = PBXGroup;
+			children = (
+				E3B0041CEA27C7BF7EEB560A /* App */,
+				F01265B06519AB849D2388BB /* Capture */,
+				CBBA82505ED923F59B09B348 /* Config */,
+				FEB3B7B0093B6AF7F70F9252 /* Models */,
+				DDCFA30520AE6DA5CB5830B4 /* NoteGeneration */,
+				06366BF83B21DC2A7A45C7A3 /* Processing */,
+				31B283C72CBCD5703BBB8689 /* Services */,
+				1A135C77DD17B2620B44909B /* Storage */,
+				7B0B892B69D85D151A3F64DF /* Views */,
+				11FA1F9E3D1ABA641FA82414 /* Assets.xcassets */,
+			);
+			path = NoteV;
+			sourceTree = "<group>";
+		};
+		72D373618E6DB81CCD26109B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4DBC2F6F94FECC10A5FF9CC9 /* NoteV.app */,
+				E9CBDD4E2F833584B2EDA9D2 /* NoteVTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7B0B892B69D85D151A3F64DF /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D3F4620E1ED3CB3F8E52CF5F /* Components */,
+				D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */,
+				369FC04B08DE705AA9774885 /* NotesResultView.swift */,
+				12BEEB312589E4CCC60C834E /* SessionListView.swift */,
+				EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		CBBA82505ED923F59B09B348 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				8A4F215A20E712B3C9653B3E /* Info.plist */,
+				5C12E69A24CFABD6D9995599 /* NoteV.entitlements */,
+				9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		CD20DDB365FA0AF52141FA11 = {
+			isa = PBXGroup;
+			children = (
+				6B384CC7FAF808B1D9798B85 /* NoteV */,
+				2F85E1EA496BB3071D18951A /* NoteVTests */,
+				72D373618E6DB81CCD26109B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D3F4620E1ED3CB3F8E52CF5F /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */,
+				3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */,
+				C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */,
+				B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		DDCFA30520AE6DA5CB5830B4 /* NoteGeneration */ = {
+			isa = PBXGroup;
+			children = (
+				48E10FCB6AA2570ACB355F09 /* NoteGenerator.swift */,
+				8F5AD5190EAB735441675978 /* NoteParser.swift */,
+				26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */,
+			);
+			path = NoteGeneration;
+			sourceTree = "<group>";
+		};
+		E3B0041CEA27C7BF7EEB560A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				757EAB6DF748CCE482C9B65B /* AppState.swift */,
+				DFDD06346A96F08E46C6BE83 /* NoteVApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F01265B06519AB849D2388BB /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				248F422AAA868FE86086AF8E /* CaptureManager.swift */,
+				217462CC4060162CF7729AD4 /* CaptureProvider.swift */,
+				3E54FE0358BCCDFC27C015E4 /* GlassesCaptureProvider.swift */,
+				88A02E25F4BE74BB80C3AE02 /* PhoneCaptureProvider.swift */,
+			);
+			path = Capture;
+			sourceTree = "<group>";
+		};
+		FEB3B7B0093B6AF7F70F9252 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				D060840D9639412421E65150 /* AudioChunk.swift */,
+				6F085C176BFB0A39B7017680 /* Bookmark.swift */,
+				BFAD7E6334C6D2841D53CB3C /* SessionData.swift */,
+				AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */,
+				CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */,
+				C725368C366A110A6E92096B /* TranscriptSegment.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		056FED6300ADBCF9F3362B14 /* NoteVTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2FAB285E44A081670B6F1CA /* Build configuration list for PBXNativeTarget "NoteVTests" */;
+			buildPhases = (
+				63B6913776B4B1D806551048 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03163BC09A9248B6292DB90D /* PBXTargetDependency */,
+			);
+			name = NoteVTests;
+			packageProductDependencies = (
+			);
+			productName = NoteVTests;
+			productReference = E9CBDD4E2F833584B2EDA9D2 /* NoteVTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		5B868756BEABF01D17A43A9A /* NoteV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2676596A46FC4ECD24FCFC84 /* Build configuration list for PBXNativeTarget "NoteV" */;
+			buildPhases = (
+				445A1F218DDD484ED692ED1F /* Sources */,
+				EBC0F71519229C290B48DECB /* Resources */,
+				53216421DF14DB9418796F84 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NoteV;
+			packageProductDependencies = (
+				4D2BBBF7B576405719CACBDC /* MWDATCore */,
+				BC152B79DBB55C1715D7A091 /* MWDATCamera */,
+			);
+			productName = NoteV;
+			productReference = 4DBC2F6F94FECC10A5FF9CC9 /* NoteV.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DD7A2F4C2D4126F20B558580 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					056FED6300ADBCF9F3362B14 = {
+						DevelopmentTeam = 6CNNH94AD6;
+					};
+					5B868756BEABF01D17A43A9A = {
+						DevelopmentTeam = 6CNNH94AD6;
+					};
+				};
+			};
+			buildConfigurationList = 7909D0B41878D0C52290BC37 /* Build configuration list for PBXProject "NoteV" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CD20DDB365FA0AF52141FA11;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BB9503B062EF0EAC03B8B3AE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5B868756BEABF01D17A43A9A /* NoteV */,
+				056FED6300ADBCF9F3362B14 /* NoteVTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EBC0F71519229C290B48DECB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C22EDBBA510E8D43CB5758B0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		445A1F218DDD484ED692ED1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9680CBD3C56862D94C807843 /* APIKeys.swift in Sources */,
+				3ADAAC7575712CD8E5FCFE19 /* AppState.swift in Sources */,
+				E49FA5D981B96B3955A638A0 /* AudioChunk.swift in Sources */,
+				FC43D9E7B99DF01CDB77B71E /* AudioPipeline.swift in Sources */,
+				7A8EA1803E62779933FA0AA8 /* Bookmark.swift in Sources */,
+				3DB837559E2DE0F4F2FDDB2D /* BookmarkDetector.swift in Sources */,
+				58A3E9459951871E2E70C8C1 /* BookmarkIndicator.swift in Sources */,
+				DE75495729E27E32521FCCD0 /* CaptureManager.swift in Sources */,
+				874B73227021ED236318CCDF /* CaptureProvider.swift in Sources */,
+				71F748C979DD6E38A07183F5 /* DeepgramService.swift in Sources */,
+				39438970A6DC57B79D351745 /* FramePipeline.swift in Sources */,
+				5BEB5FD6F8763E8C7CF99ACD /* FrameThumbnailView.swift in Sources */,
+				AAEA224B9B7ACE3A17000248 /* GlassesCaptureProvider.swift in Sources */,
+				C143CDAE521D36B4BC316D8B /* ImageStore.swift in Sources */,
+				7772E519ACA8F25B89B76CCA /* LLMService.swift in Sources */,
+				73E4CBC73A172F3621788948 /* LiveSessionView.swift in Sources */,
+				A203C5DE2F508C3E0BE37EAE /* MultimodalNoteView.swift in Sources */,
+				C2D025977A5F0D9A965E1584 /* NoteGenerator.swift in Sources */,
+				6B24661D8255645208F4A795 /* NoteParser.swift in Sources */,
+				8DCC7820CBE2E9748511A851 /* NoteVApp.swift in Sources */,
+				6FE7180C6E30852EEF0E5714 /* NoteVConfig.swift in Sources */,
+				22D39271B4619B58D040D370 /* NotesResultView.swift in Sources */,
+				89762E0EB9F0C95A6FF2DB74 /* PhoneCaptureProvider.swift in Sources */,
+				A6356672B6E892B616ED3DDA /* PromptBuilder.swift in Sources */,
+				8E86616CDE14C80BC25F7043 /* SessionData.swift in Sources */,
+				BF638DF40D63791BCBF8E07B /* SessionListView.swift in Sources */,
+				9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */,
+				DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */,
+				5E85350915AF55906B622CB3 /* StartSessionView.swift in Sources */,
+				4DB73242C8CD03FCD3B13F4E /* StructuredNotes.swift in Sources */,
+				46F02D5711FB7A248955B619 /* TimestampedFrame.swift in Sources */,
+				DC1D85E76C415E925C552014 /* TranscriptScrollView.swift in Sources */,
+				29E6CB3D87A8607521571F5E /* TranscriptSegment.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63B6913776B4B1D806551048 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		03163BC09A9248B6292DB90D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5B868756BEABF01D17A43A9A /* NoteV */;
+			targetProxy = 4AB736972370B755A7AEF826 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		055DF33B505744CB5311092D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6CNNH94AD6;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = NoteV/Config/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2A23467F9D009F10371577A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.notev.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NoteV.app/NoteV";
+			};
+			name = Release;
+		};
+		38DC3BD082B10547878EBFEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6CNNH94AD6;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = NoteV/Config/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		9202892DC27BDAA49B34DF32 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NoteV/Config/NoteV.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = NoteV/Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.notev.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9D08B863653B64775B9378E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NoteV/Config/NoteV.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = NoteV/Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.notev.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F91DF23B43DF62D2C164745D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.notev.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NoteV.app/NoteV";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2676596A46FC4ECD24FCFC84 /* Build configuration list for PBXNativeTarget "NoteV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9202892DC27BDAA49B34DF32 /* Debug */,
+				9D08B863653B64775B9378E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7909D0B41878D0C52290BC37 /* Build configuration list for PBXProject "NoteV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				055DF33B505744CB5311092D /* Debug */,
+				38DC3BD082B10547878EBFEE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2FAB285E44A081670B6F1CA /* Build configuration list for PBXNativeTarget "NoteVTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F91DF23B43DF62D2C164745D /* Debug */,
+				2A23467F9D009F10371577A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BB9503B062EF0EAC03B8B3AE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 0.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4D2BBBF7B576405719CACBDC /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB9503B062EF0EAC03B8B3AE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		BC152B79DBB55C1715D7A091 /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB9503B062EF0EAC03B8B3AE /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = DD7A2F4C2D4126F20B558580 /* Project object */;
+}
