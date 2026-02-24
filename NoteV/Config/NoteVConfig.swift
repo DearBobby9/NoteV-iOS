@@ -22,7 +22,7 @@ enum NoteVConfig {
 
     enum Audio {
         /// Which STT provider to use
-        static let sttProvider: STTProvider = .deepgram
+        static let sttProvider: STTProvider = .appleSpeech
         /// Deepgram model identifier
         static let deepgramModel: String = "nova-2"
         /// Audio sample rate in Hz
@@ -53,9 +53,14 @@ enum NoteVConfig {
 
     enum NoteGeneration {
         /// Which LLM provider to use
-        static let llmProvider: LLMProvider = .openai
+        static let llmProvider: LLMProvider = .gemini
         /// LLM model identifier
-        static let llmModel: String = "gpt-4o"
+        static let llmModel: String = "gemini-2.5-flash"
+        /// Full endpoint URL for the LLM API (nil = use provider default).
+        /// Must include the complete path, e.g. "https://my-proxy.com/v1/chat/completions".
+        static let llmEndpointURL: String? = nil
+        /// Custom API key (nil = use APIKeys for the provider)
+        static let llmAPIKey: String? = nil
         /// Maximum frames included in the LLM prompt
         static let maxFramesInPrompt: Int = 20
         /// Maximum tokens for LLM response
@@ -65,6 +70,8 @@ enum NoteVConfig {
     enum LLMProvider: String {
         case openai
         case anthropic
+        case gemini
+        case custom    // any OpenAI-compatible endpoint
     }
 
     // MARK: - Storage

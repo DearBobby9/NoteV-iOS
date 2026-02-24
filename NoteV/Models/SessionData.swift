@@ -42,7 +42,7 @@ struct SessionMetadata: Codable, Sendable {
 struct SessionData: Identifiable, Codable, Sendable {
     var id: UUID { metadata.sessionId }
 
-    let metadata: SessionMetadata
+    var metadata: SessionMetadata
     var frames: [TimestampedFrame]
     var transcriptSegments: [TranscriptSegment]
     var bookmarks: [Bookmark]

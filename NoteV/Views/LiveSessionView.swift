@@ -3,9 +3,11 @@ import SwiftUI
 // MARK: - LiveSessionView
 
 /// Active recording screen: timer, live transcript, frame thumbnails, bookmark indicator.
-/// TODO: Phase 2 — Wire up live data streams
 struct LiveSessionView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var sessionRecorder: SessionRecorder
+
+    @State private var isEndingSession = false
 
     var body: some View {
         ZStack {
@@ -15,11 +17,19 @@ struct LiveSessionView: View {
             VStack(spacing: 16) {
                 // Recording Header
                 HStack {
-                    // Recording indicator
+                    // Recording indicator with pulse
                     HStack(spacing: 8) {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 12, height: 12)
+                            .overlay(
+                                Circle()
+                                    .fill(Color.red.opacity(0.4))
+                                    .frame(width: 20, height: 20)
+                                    .scaleEffect(appState.isRecording ? 1.5 : 1.0)
+                                    .opacity(appState.isRecording ? 0.0 : 0.6)
+                                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false), value: appState.isRecording)
+                            )
 
                         Text("Recording")
                             .font(.callout)
@@ -57,6 +67,23 @@ struct LiveSessionView: View {
                 BookmarkIndicator()
                     .frame(height: 40)
 
+                // Manual Bookmark Button
+                Button(action: {
+                    triggerManualBookmark()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bookmark.fill")
+                        Text("Bookmark")
+                    }
+                    .font(.callout)
+                    .fontWeight(.medium)
+                    .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(NoteVConfig.Design.bookmarkHighlight.opacity(0.15))
+                    .cornerRadius(20)
+                }
+
                 // Transcript
                 TranscriptScrollView()
                     .padding(.horizontal, NoteVConfig.Design.padding)
@@ -65,22 +92,80 @@ struct LiveSessionView: View {
 
                 // End Session Button
                 Button(action: {
-                    NSLog("[LiveSessionView] End Class tapped")
-                    // TODO: Phase 2 — Stop recording, navigate to NotesResultView
+                    endSession()
                 }) {
-                    Text("End Class")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.red.opacity(0.8))
-                        .cornerRadius(NoteVConfig.Design.cornerRadius)
+                    if isEndingSession {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.red.opacity(0.5))
+                            .cornerRadius(NoteVConfig.Design.cornerRadius)
+                    } else {
+                        Text("End Class")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.red.opacity(0.8))
+                            .cornerRadius(NoteVConfig.Design.cornerRadius)
+                    }
                 }
+                .disabled(isEndingSession)
                 .padding(.horizontal, NoteVConfig.Design.padding)
                 .padding(.bottom, 20)
             }
         }
         .navigationBarBackButtonHidden(true)
+    }
+
+    // MARK: - Actions
+
+    private func endSession() {
+        NSLog("[LiveSessionView] End Class tapped")
+        isEndingSession = true
+
+        Task {
+            let session = await sessionRecorder.stopRecording()
+            appState.currentSession = session
+            appState.sessionStatus = .generatingNotes
+
+            // Navigate to notes result
+            appState.navigationPath.append(NavigationDestination.notesResult)
+            isEndingSession = false
+
+            // Generate notes in background
+            Task {
+                do {
+                    let generator = NoteGenerator()
+                    let notes = try await generator.generateNotes(from: session)
+                    appState.generatedNotes = notes
+
+                    // Update session with notes + backfill title, then save
+                    var updatedSession = session
+                    updatedSession.metadata.title = notes.title
+                    updatedSession.notes = notes
+                    appState.currentSession = updatedSession
+
+                    let store = SessionStore()
+                    try store.save(session: updatedSession)
+
+                    appState.sessionStatus = .complete
+                    NSLog("[LiveSessionView] Notes generated successfully")
+                } catch {
+                    NSLog("[LiveSessionView] ERROR generating notes: \(error.localizedDescription)")
+                    appState.sessionStatus = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func triggerManualBookmark() {
+        NSLog("[LiveSessionView] Manual bookmark triggered")
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Task {
+            await sessionRecorder.triggerManualBookmark()
+        }
     }
 }
 
@@ -89,4 +174,5 @@ struct LiveSessionView: View {
 #Preview {
     LiveSessionView()
         .environmentObject(AppState())
+        .environmentObject(SessionRecorder())
 }

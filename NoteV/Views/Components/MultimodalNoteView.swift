@@ -3,9 +3,11 @@ import SwiftUI
 // MARK: - MultimodalNoteView
 
 /// Renders StructuredNotes with inline images and section navigation.
-/// TODO: Phase 3 — Full markdown rendering, image loading from ImageStore
 struct MultimodalNoteView: View {
     let notes: StructuredNotes
+    var sessionId: UUID?
+
+    private let imageStore = ImageStore()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -52,45 +54,81 @@ struct MultimodalNoteView: View {
 
             // Sections
             ForEach(notes.sections.sorted { $0.order < $1.order }) { section in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(section.title)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(NoteVConfig.Design.textPrimary)
+                let isBookmarkSection = section.title.localizedCaseInsensitiveContains("bookmark")
 
-                    Text(section.content)
-                        .font(.body)
-                        .foregroundColor(NoteVConfig.Design.textPrimary)
-                        .lineSpacing(4)
+                HStack(alignment: .top, spacing: 0) {
+                    // Orange left border for bookmark sections
+                    if isBookmarkSection {
+                        Rectangle()
+                            .fill(NoteVConfig.Design.bookmarkHighlight)
+                            .frame(width: 3)
+                    }
 
-                    // Section images
-                    ForEach(section.images) { image in
-                        VStack(spacing: 4) {
-                            // TODO: Phase 3 — Load actual image from ImageStore
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(NoteVConfig.Design.surface)
-                                .frame(height: 200)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .font(.largeTitle)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Section title
+                        HStack(spacing: 6) {
+                            if isBookmarkSection {
+                                Image(systemName: "bookmark.fill")
+                                    .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+                            }
+                            Text(section.title)
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(isBookmarkSection
+                                    ? NoteVConfig.Design.bookmarkHighlight
+                                    : NoteVConfig.Design.textPrimary)
+                        }
+
+                        Text(section.content)
+                            .font(.body)
+                            .foregroundColor(NoteVConfig.Design.textPrimary)
+                            .lineSpacing(4)
+
+                        // Section images
+                        ForEach(section.images) { image in
+                            VStack(spacing: 4) {
+                                if let sid = sessionId,
+                                   let imageData = imageStore.loadImage(filename: image.filename, sessionId: sid),
+                                   let uiImage = UIImage(data: imageData) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .cornerRadius(8)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(NoteVConfig.Design.surface)
+                                        .frame(height: 200)
+                                        .overlay(
+                                            Image(systemName: "photo")
+                                                .font(.largeTitle)
+                                                .foregroundColor(NoteVConfig.Design.textSecondary)
+                                        )
+                                }
+
+                                if !image.caption.isEmpty {
+                                    Text(image.caption)
+                                        .font(.caption)
                                         .foregroundColor(NoteVConfig.Design.textSecondary)
-                                )
-
-                            if !image.caption.isEmpty {
-                                Text(image.caption)
-                                    .font(.caption)
-                                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                                    .italic()
+                                        .italic()
+                                }
                             }
                         }
                     }
+                    .padding(.leading, isBookmarkSection ? 12 : 0)
                 }
+                .padding(isBookmarkSection ? 12 : 0)
+                .background(
+                    isBookmarkSection
+                        ? NoteVConfig.Design.bookmarkHighlight.opacity(0.12)
+                        : Color.clear
+                )
+                .cornerRadius(isBookmarkSection ? NoteVConfig.Design.cornerRadius : 0)
             }
 
             // Generation info
             HStack {
                 Spacer()
-                Text("Generated by \(notes.modelUsed)")
+                Text("Generated by \(notes.modelUsed) via NoteV")
                     .font(.caption2)
                     .foregroundColor(NoteVConfig.Design.textSecondary)
             }

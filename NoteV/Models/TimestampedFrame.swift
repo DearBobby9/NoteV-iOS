@@ -21,22 +21,31 @@ struct TimestampedFrame: Identifiable, Codable, Sendable {
     let timestamp: TimeInterval
     /// Why this frame was captured
     let trigger: FrameTrigger
-    /// SSIM change score relative to previous frame (0.0 = identical, 1.0 = completely different)
+    /// Change score relative to previous frame (0.0 = identical, 1.0 = completely different)
     let changeScore: Double
     /// Filename for the stored JPEG (e.g. "frame_001.jpg")
     let imageFilename: String
+
+    /// Transient in-memory image data for pipeline processing (not persisted)
+    var imageData: Data?
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, trigger, changeScore, imageFilename
+    }
 
     init(
         id: UUID = UUID(),
         timestamp: TimeInterval,
         trigger: FrameTrigger = .periodic,
         changeScore: Double = 0.0,
-        imageFilename: String = ""
+        imageFilename: String = "",
+        imageData: Data? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
         self.trigger = trigger
         self.changeScore = changeScore
         self.imageFilename = imageFilename
+        self.imageData = imageData
     }
 }

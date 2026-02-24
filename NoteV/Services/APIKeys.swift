@@ -30,6 +30,14 @@ enum APIKeys {
         anthropicAPIKey != "YOUR_ANTHROPIC_API_KEY" && !anthropicAPIKey.isEmpty
     }
 
+    // MARK: - Google Gemini
+
+    static let geminiAPIKey = "YOUR_GEMINI_API_KEY"
+
+    static var isGeminiConfigured: Bool {
+        geminiAPIKey != "YOUR_GEMINI_API_KEY" && !geminiAPIKey.isEmpty
+    }
+
     // MARK: - Meta (DAT SDK)
 
     static let metaAppID = "YOUR_META_APP_ID"
@@ -50,6 +58,9 @@ enum APIKeys {
         }
         if !isAnthropicConfigured {
             NSLog("[APIKeys] WARNING: Anthropic API key not configured")
+        }
+        if !isGeminiConfigured {
+            NSLog("[APIKeys] WARNING: Gemini API key not configured")
         }
         if !isMetaConfigured {
             NSLog("[APIKeys] WARNING: Meta App ID not configured")

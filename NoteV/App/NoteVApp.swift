@@ -6,6 +6,7 @@ import MWDATCore
 @main
 struct NoteVApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var sessionRecorder = SessionRecorder()
 
     init() {
         // Configure Meta DAT SDK (VisionClaw pattern)
@@ -16,17 +17,30 @@ struct NoteVApp: App {
             NSLog("[NoteVApp] DAT SDK configure failed: \(error.localizedDescription)")
         }
 
-        // Validate API keys
-        APIKeys.validateAll()
-
-        NSLog("[NoteVApp] App initialized")
+        NSLog("[NoteVApp] App initialized — LLM configured: \(SettingsManager.shared.isConfigured)")
     }
 
     var body: some Scene {
         WindowGroup {
-            StartSessionView()
-                .environmentObject(appState)
-                .preferredColorScheme(.dark)
+            NavigationStack(path: $appState.navigationPath) {
+                StartSessionView()
+                    .navigationDestination(for: NavigationDestination.self) { destination in
+                        switch destination {
+                        case .liveSession:
+                            LiveSessionView()
+                        case .notesResult:
+                            NotesResultView()
+                        case .sessionList:
+                            SessionListView()
+                        }
+                    }
+            }
+            .environmentObject(appState)
+            .environmentObject(sessionRecorder)
+            .preferredColorScheme(.dark)
+            .task {
+                sessionRecorder.setAppState(appState)
+            }
         }
     }
 }

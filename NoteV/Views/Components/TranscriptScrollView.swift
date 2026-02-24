@@ -19,12 +19,33 @@ struct TranscriptScrollView: View {
                             .padding(.top, 8)
                     } else {
                         ForEach(appState.transcriptSegments) { segment in
-                            HStack(alignment: .top, spacing: 8) {
-                                // Timestamp
-                                Text(formatTimestamp(segment.startTime))
-                                    .font(.caption)
-                                    .foregroundColor(NoteVConfig.Design.accent)
-                                    .frame(width: 50, alignment: .trailing)
+                            let isBookmarked = appState.bookmarkTimestamps.contains { ts in
+                                ts >= segment.startTime && ts <= segment.endTime + 2.0
+                            }
+
+                            HStack(alignment: .top, spacing: 0) {
+                                // Orange left border for bookmarked segments
+                                if isBookmarked {
+                                    Rectangle()
+                                        .fill(NoteVConfig.Design.bookmarkHighlight)
+                                        .frame(width: 3)
+                                        .padding(.trailing, 5)
+                                }
+
+                                // Timestamp or bookmark icon
+                                if isBookmarked {
+                                    Image(systemName: "bookmark.fill")
+                                        .font(.caption)
+                                        .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+                                        .frame(width: 50, alignment: .trailing)
+                                        .padding(.trailing, 8)
+                                } else {
+                                    Text(formatTimestamp(segment.startTime))
+                                        .font(.caption)
+                                        .foregroundColor(NoteVConfig.Design.accent)
+                                        .frame(width: 50, alignment: .trailing)
+                                        .padding(.trailing, 8)
+                                }
 
                                 // Text
                                 Text(segment.text)
@@ -33,6 +54,14 @@ struct TranscriptScrollView: View {
                                         ? NoteVConfig.Design.textPrimary
                                         : NoteVConfig.Design.textSecondary)
                             }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, isBookmarked ? 4 : 0)
+                            .background(
+                                isBookmarked
+                                    ? NoteVConfig.Design.bookmarkHighlight.opacity(0.12)
+                                    : Color.clear
+                            )
+                            .cornerRadius(6)
                             .id(segment.id)
                         }
                     }

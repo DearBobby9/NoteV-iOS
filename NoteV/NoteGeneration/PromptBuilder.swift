@@ -4,12 +4,16 @@ import Foundation
 
 /// Builds the multimodal prompt for note generation.
 /// Combines transcript, selected frames, and bookmarks into a structured LLM prompt.
-/// TODO: Phase 3 — Full prompt construction with image encoding
 final class PromptBuilder {
+
+    // MARK: - Properties
+
+    private let imageStore: ImageStore
 
     // MARK: - Init
 
-    init() {
+    init(imageStore: ImageStore = ImageStore()) {
+        self.imageStore = imageStore
         NSLog("[PromptBuilder] Initialized")
     }
 
@@ -44,25 +48,86 @@ final class PromptBuilder {
     - Use markdown formatting for structure
     - Include key definitions, formulas, and examples
     - Mark bookmarked moments as important highlights
+    - Reference images using the format ![image_N](caption) where N is the image index
     """
 
     // MARK: - Building
 
-    /// Build the full prompt from session data.
-    func buildPrompt(session: SessionData, selectedFrames: [TimestampedFrame]) -> String {
-        NSLog("[PromptBuilder] buildPrompt() called — \(selectedFrames.count) frames")
+    /// Build the full prompt from session data. Returns (prompt text, image data array, frames actually included).
+    /// Only frames whose images load successfully are included — this keeps image_N indices
+    /// aligned with the actual image data sent to the LLM.
+    func buildPrompt(session: SessionData, selectedFrames: [TimestampedFrame]) -> (String, [Data], [TimestampedFrame]) {
+        NSLog("[PromptBuilder] buildPrompt() called — \(selectedFrames.count) frames, \(session.transcriptSegments.count) segments")
 
-        // TODO: Phase 3
+        var prompt = ""
+        var images: [Data] = []
+        var includedFrames: [TimestampedFrame] = []
+
         // 1. Format transcript with timestamps
-        // 2. Encode selected frames as base64 for multimodal API
-        // 3. Mark bookmarked sections
-        // 4. Assemble full prompt with system prompt + user content
+        prompt += "## TRANSCRIPT\n\n"
+        let sortedSegments = session.transcriptSegments.sorted { $0.startTime < $1.startTime }
 
-        var prompt = "TRANSCRIPT:\n"
-        prompt += session.fullTranscript
-        prompt += "\n\nCAPTURED IMAGES: \(selectedFrames.count) frames attached"
-        prompt += "\n\nBOOKMARKS: \(session.bookmarks.count) moments marked as important"
+        if sortedSegments.isEmpty {
+            prompt += "(No transcript available)\n"
+        } else {
+            for segment in sortedSegments {
+                let timestamp = formatTimestamp(segment.startTime)
+                prompt += "[\(timestamp)] \(segment.text)\n"
+            }
+        }
 
-        return prompt
+        // 2. Pre-filter to only frames whose images load successfully
+        let loadable: [(TimestampedFrame, Data)] = selectedFrames.compactMap { frame in
+            guard let data = imageStore.loadImage(filename: frame.imageFilename, sessionId: session.id) else {
+                NSLog("[PromptBuilder] Skipping frame \(frame.imageFilename) — image not found on disk")
+                return nil
+            }
+            return (frame, data)
+        }
+
+        // 3. List captured images with metadata — only loadable frames
+        prompt += "\n## CAPTURED IMAGES\n\n"
+        prompt += "\(loadable.count) images captured during the lecture:\n\n"
+
+        for (index, (frame, imageData)) in loadable.enumerated() {
+            let timestamp = formatTimestamp(frame.timestamp)
+            let triggerLabel: String
+            switch frame.trigger {
+            case .periodic: triggerLabel = "periodic sample"
+            case .changeDetected: triggerLabel = "slide/content change detected"
+            case .bookmark: triggerLabel = "bookmarked moment"
+            }
+
+            prompt += "- image_\(index + 1): captured at [\(timestamp)] (\(triggerLabel), change score: \(String(format: "%.2f", frame.changeScore)))\n"
+            images.append(imageData)
+            includedFrames.append(frame)
+        }
+
+        // 3. Mark bookmarked moments
+        if !session.bookmarks.isEmpty {
+            prompt += "\n## BOOKMARKED MOMENTS (marked as important by the student)\n\n"
+            for (index, bookmark) in session.bookmarks.enumerated() {
+                let timestamp = formatTimestamp(bookmark.timestamp)
+                prompt += "- Bookmark \(index + 1) at [\(timestamp)]: \"\(bookmark.surroundingTranscript.prefix(200))\"\n"
+            }
+        }
+
+        prompt += "\n## INSTRUCTIONS\n\n"
+        prompt += "Please generate comprehensive, well-structured notes from this lecture. "
+        prompt += "Integrate the visual content (slides, diagrams) with the spoken transcript. "
+        prompt += "Pay special attention to bookmarked moments as the student marked these as important. "
+        prompt += "If there are bookmarked moments, create a dedicated '## Bookmarked Highlights' section summarizing each bookmarked moment with its timestamp and importance. "
+        prompt += "Reference the captured images using ![image_N](description) format.\n"
+
+        NSLog("[PromptBuilder] Prompt built — \(prompt.count) chars, \(images.count) images (\(selectedFrames.count - includedFrames.count) skipped)")
+        return (prompt, images, includedFrames)
+    }
+
+    // MARK: - Helpers
+
+    private func formatTimestamp(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", minutes, secs)
     }
 }

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Manages capture provider selection and lifecycle.
 /// Auto-selects glasses when connected, falls back to phone camera.
-/// TODO: Phase 1 — Full provider lifecycle management
+/// On Simulator (no camera/mic), starts with empty streams to avoid crashes.
 @MainActor
 final class CaptureManager: ObservableObject {
 
@@ -22,7 +22,7 @@ final class CaptureManager: ObservableObject {
     init() {
         self.glassesProvider = GlassesCaptureProvider()
         self.phoneProvider = PhoneCaptureProvider()
-        NSLog("[CaptureManager] Initialized — default source: phone")
+        NSLog("[CaptureManager] Initialized — default source: phone, phoneAvailable: \(phoneProvider.isAvailable)")
     }
 
     // MARK: - Provider Selection
@@ -34,10 +34,16 @@ final class CaptureManager: ObservableObject {
             activeProvider = glassesProvider
             NSLog("[CaptureManager] Selected glasses capture provider")
             return glassesProvider
-        } else {
+        } else if phoneProvider.isAvailable {
             activeSource = .phone
             activeProvider = phoneProvider
-            NSLog("[CaptureManager] Selected phone capture provider (fallback)")
+            NSLog("[CaptureManager] Selected phone capture provider")
+            return phoneProvider
+        } else {
+            // Simulator or no hardware — use phone provider anyway (it will produce empty streams)
+            activeSource = .phone
+            activeProvider = phoneProvider
+            NSLog("[CaptureManager] WARNING: No capture hardware available (Simulator?) — using phone provider stub")
             return phoneProvider
         }
     }
@@ -47,8 +53,16 @@ final class CaptureManager: ObservableObject {
     /// Start capture with the selected provider.
     func startCapture() async throws {
         let provider = selectProvider()
-        try await provider.startCapture()
-        NSLog("[CaptureManager] Capture started via \(activeSource.rawValue)")
+        do {
+            try await provider.startCapture()
+            NSLog("[CaptureManager] Capture started via \(activeSource.rawValue)")
+        } catch {
+            NSLog("[CaptureManager] WARNING: Capture start failed: \(error.localizedDescription) — continuing with empty streams")
+            // Don't re-throw on Simulator so the app can still run the UI flow
+            #if !targetEnvironment(simulator)
+            throw error
+            #endif
+        }
     }
 
     /// Stop capture.

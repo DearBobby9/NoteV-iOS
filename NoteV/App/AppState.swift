@@ -25,16 +25,30 @@ enum CaptureSourceStatus: Equatable {
     case active
 }
 
+// MARK: - NavigationDestination
+
+/// Navigation destinations for the main flow.
+enum NavigationDestination: Hashable {
+    case liveSession
+    case notesResult
+    case sessionList
+}
+
 // MARK: - AppState
 
 /// Global application state, injected as an environment object.
 @MainActor
 final class AppState: ObservableObject {
 
+    // MARK: - Navigation
+
+    @Published var navigationPath = NavigationPath()
+
     // MARK: - Session
 
     @Published var sessionStatus: SessionStatus = .idle
     @Published var currentSession: SessionData?
+    @Published var generatedNotes: StructuredNotes?
 
     // MARK: - Capture Source
 
@@ -48,6 +62,8 @@ final class AppState: ObservableObject {
     @Published var frameCount: Int = 0
     @Published var bookmarkCount: Int = 0
     @Published var elapsedTime: TimeInterval = 0
+    @Published var latestFrameData: Data?
+    @Published var bookmarkTimestamps: [TimeInterval] = []
 
     // MARK: - Past Sessions
 
@@ -78,10 +94,13 @@ final class AppState: ObservableObject {
     func reset() {
         sessionStatus = .idle
         currentSession = nil
+        generatedNotes = nil
         transcriptSegments = []
         frameCount = 0
         bookmarkCount = 0
         elapsedTime = 0
+        latestFrameData = nil
+        bookmarkTimestamps = []
         NSLog("[AppState] State reset to idle")
     }
 }

@@ -2,8 +2,7 @@ import SwiftUI
 
 // MARK: - SessionListView
 
-/// List of past recording sessions.
-/// TODO: Phase 2 — Load sessions from SessionStore, navigation to NotesResultView
+/// List of past recording sessions with navigation to view notes.
 struct SessionListView: View {
     @EnvironmentObject var appState: AppState
 
@@ -28,27 +27,38 @@ struct SessionListView: View {
                 }
             } else {
                 List(appState.pastSessions) { session in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.metadata.title)
-                                .font(.headline)
-                                .foregroundColor(NoteVConfig.Design.textPrimary)
+                    Button(action: {
+                        appState.currentSession = session
+                        appState.generatedNotes = session.notes
+                        appState.sessionStatus = session.notes != nil ? .complete : .idle
+                        appState.navigationPath.append(NavigationDestination.notesResult)
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(session.metadata.title)
+                                    .font(.headline)
+                                    .foregroundColor(NoteVConfig.Design.textPrimary)
 
-                            Text(session.metadata.startDate, style: .date)
+                                HStack(spacing: 8) {
+                                    Text(session.metadata.startDate, style: .date)
+                                    Text(formatDuration(session.metadata.durationSeconds))
+                                }
                                 .font(.subheadline)
                                 .foregroundColor(NoteVConfig.Design.textSecondary)
-                        }
+                            }
 
-                        Spacer()
+                            Spacer()
 
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("\(session.frames.count) frames")
-                                .font(.caption)
-                                .foregroundColor(NoteVConfig.Design.textSecondary)
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("\(session.frames.count) frames")
+                                    .font(.caption)
+                                    .foregroundColor(NoteVConfig.Design.textSecondary)
 
-                            if session.notes != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                if session.notes != nil {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.caption)
+                                }
                             }
                         }
                     }
@@ -61,6 +71,12 @@ struct SessionListView: View {
         .navigationTitle("Sessions")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 }
 

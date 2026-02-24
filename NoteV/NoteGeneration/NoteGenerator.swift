@@ -3,7 +3,6 @@ import Foundation
 // MARK: - NoteGenerator
 
 /// Orchestrates note generation: selects frames, builds prompt, calls LLM, parses result.
-/// TODO: Phase 3 — Full LLM integration
 final class NoteGenerator {
 
     // MARK: - Properties
@@ -22,7 +21,8 @@ final class NoteGenerator {
         self.promptBuilder = promptBuilder
         self.llmService = llmService
         self.noteParser = noteParser
-        NSLog("[NoteGenerator] Initialized — provider: \(NoteVConfig.NoteGeneration.llmProvider.rawValue), model: \(NoteVConfig.NoteGeneration.llmModel)")
+        let settings = SettingsManager.shared
+        NSLog("[NoteGenerator] Initialized — provider: \(settings.llmProvider.rawValue), model: \(settings.llmModel)")
     }
 
     // MARK: - Generation
@@ -31,22 +31,33 @@ final class NoteGenerator {
     func generateNotes(from session: SessionData) async throws -> StructuredNotes {
         NSLog("[NoteGenerator] generateNotes() called — \(session.frames.count) frames, \(session.transcriptSegments.count) segments")
 
-        // TODO: Phase 3
-        // 1. Select top frames via session.topFrames()
-        // 2. Build multimodal prompt via PromptBuilder
-        // 3. Send to LLM via LLMService
-        // 4. Parse response via NoteParser
-        // 5. Return StructuredNotes
+        // 1. Select top frames (bookmarks first, then highest change score)
+        let selectedFrames = session.topFrames()
+        NSLog("[NoteGenerator] Selected \(selectedFrames.count) top frames for prompt")
 
-        // Stub: return empty notes
-        let notes = StructuredNotes(
-            title: session.metadata.title,
-            summary: "Notes generation not yet implemented.",
-            sections: [],
-            keyTakeaways: []
+        // 2. Build multimodal prompt — returns only frames whose images loaded successfully
+        let (userPrompt, images, includedFrames) = promptBuilder.buildPrompt(session: session, selectedFrames: selectedFrames)
+        NSLog("[NoteGenerator] Prompt built — \(userPrompt.count) chars, \(images.count) images")
+
+        // 3. Send to LLM
+        let response = try await llmService.sendPrompt(
+            systemPrompt: PromptBuilder.systemPrompt,
+            userPrompt: userPrompt,
+            images: images
         )
+        NSLog("[NoteGenerator] LLM response received — \(response.count) chars")
 
-        NSLog("[NoteGenerator] Generated stub notes for session: \(session.id)")
+        // 4. Build image_N → filename mapping from includedFrames (matches prompt indices exactly)
+        var imageMap: [Int: String] = [:]
+        for (index, frame) in includedFrames.enumerated() {
+            imageMap[index + 1] = frame.imageFilename
+        }
+        NSLog("[NoteGenerator] Image mapping built — \(imageMap.count) entries")
+
+        // 5. Parse response into StructuredNotes (pass mapping directly — no mutable state)
+        let notes = noteParser.parse(markdown: response, imageFilenameMap: imageMap)
+        NSLog("[NoteGenerator] Notes parsed — \"\(notes.title)\", \(notes.sections.count) sections")
+
         return notes
     }
 }
