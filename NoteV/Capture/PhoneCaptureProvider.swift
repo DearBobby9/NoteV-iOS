@@ -23,6 +23,13 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
     private var sessionStartTime: Date?
     private var frameIndex: Int = 0
 
+    // Reuse CIContext across all frames (creating per-frame causes massive memory churn)
+    private let ciContext = CIContext()
+
+    // Frame throttle — only encode 1 frame per samplingInterval (default 5s)
+    private var lastYieldTime: TimeInterval = -999
+    private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
+
     // Photo capture completion handler
     private var photoContinuation: CheckedContinuation<Data, Error>?
 
@@ -76,9 +83,19 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
             captureSession.addOutput(videoOutput)
         }
 
+        // Lock video orientation to portrait so pixel buffers arrive upright
+        if let connection = videoOutput.connection(with: .video) {
+            connection.videoOrientation = .portrait
+        }
+
         // Photo output — for bookmark high-res capture
         if captureSession.canAddOutput(photoOutput) {
             captureSession.addOutput(photoOutput)
+        }
+
+        // Also lock photo output to portrait
+        if let photoConnection = photoOutput.connection(with: .video) {
+            photoConnection.videoOrientation = .portrait
         }
 
         captureSession.commitConfiguration()
@@ -152,14 +169,25 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
     // MARK: - CaptureProvider
 
+    /// Update the sampling interval dynamically (called by FramePipeline for burst mode).
+    func setSamplingInterval(_ interval: TimeInterval) {
+        // Synchronize with captureOutput (runs on videoQueue).
+        videoQueue.async { [weak self] in
+            self?.samplingInterval = interval
+            NSLog("[PhoneCaptureProvider] Sampling interval set to \(String(format: "%.1f", interval))s")
+        }
+    }
+
     func startCapture() async throws {
         NSLog("[PhoneCaptureProvider] startCapture() called")
         sessionStartTime = Date()
         frameIndex = 0
 
-        // Start video capture on background queue
-        videoQueue.async { [weak self] in
-            self?.captureSession.startRunning()
+        // Start video capture serially on the video queue.
+        await performOnVideoQueue {
+            self.lastYieldTime = -999
+            self.samplingInterval = NoteVConfig.Frame.periodicSamplingInterval
+            self.captureSession.startRunning()
             NSLog("[PhoneCaptureProvider] AVCaptureSession started")
         }
 
@@ -170,10 +198,9 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
             NSLog("[PhoneCaptureProvider] AVAudioEngine started")
         } catch {
             NSLog("[PhoneCaptureProvider] ERROR starting audio engine: \(error.localizedDescription) — rolling back")
-            // Rollback: dispatch stopRunning on videoQueue to guarantee it runs AFTER the
-            // async startRunning that was already enqueued (otherwise startRunning fires later)
-            videoQueue.async { [weak self] in
-                self?.captureSession.stopRunning()
+            // Rollback on the same queue to preserve start/stop ordering.
+            await performOnVideoQueue {
+                self.captureSession.stopRunning()
                 NSLog("[PhoneCaptureProvider] Rollback: AVCaptureSession stopped")
             }
             // Remove audio tap if configureAudioEngine() installed it before the throw
@@ -186,7 +213,10 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
     func stopCapture() async {
         NSLog("[PhoneCaptureProvider] stopCapture() called")
 
-        captureSession.stopRunning()
+        // Stop video on the same serial queue used for start/running callbacks.
+        await performOnVideoQueue {
+            self.captureSession.stopRunning()
+        }
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
 
@@ -218,6 +248,15 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
         guard let start = sessionStartTime else { return 0 }
         return Date().timeIntervalSince(start)
     }
+
+    private func performOnVideoQueue(_ work: @escaping () -> Void) async {
+        await withCheckedContinuation { continuation in
+            videoQueue.async {
+                work()
+                continuation.resume()
+            }
+        }
+    }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
@@ -228,23 +267,27 @@ extension PhoneCaptureProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        // Throttle: skip frames until samplingInterval has elapsed.
+        // This avoids JPEG encoding at 30fps — only ~12 frames/min at default 5s interval.
+        let now = currentTimestamp()
+        guard now - lastYieldTime >= samplingInterval else { return }
+        lastYieldTime = now
+
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Convert CMSampleBuffer → JPEG Data
+        // Convert CMSampleBuffer → JPEG Data (using class-level CIContext to avoid per-frame alloc)
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
+        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
 
         let uiImage = UIImage(cgImage: cgImage)
         guard let jpegData = uiImage.jpegData(compressionQuality: NoteVConfig.Storage.jpegCompressionQuality) else { return }
 
-        let timestamp = currentTimestamp()
         frameIndex += 1
 
         let filename = String(format: "frame_%04d.jpg", frameIndex)
 
         let frame = TimestampedFrame(
-            timestamp: timestamp,
+            timestamp: now,
             trigger: .periodic,
             changeScore: 0.0,
             imageFilename: filename,

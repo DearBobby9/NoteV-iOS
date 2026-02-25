@@ -25,6 +25,7 @@ final class AudioPipeline {
 
     // Reference to audio stream for restart
     private var currentAudioStream: AsyncStream<AudioChunk>?
+    private var finalResultContinuation: CheckedContinuation<Void, Never>?
 
     lazy var transcriptStream: AsyncStream<TranscriptSegment> = {
         AsyncStream { continuation in
@@ -85,6 +86,23 @@ final class AudioPipeline {
         recognitionRequest?.endAudio()
     }
 
+    /// Wait for the active recognition task to deliver its terminal callback.
+    /// Uses an event-driven signal with timeout fallback to avoid indefinite hangs.
+    func waitForFinalResult(timeoutNanoseconds: UInt64 = 2_000_000_000) async {
+        guard recognitionTask != nil else { return }
+
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { [weak self] in
+                await self?.waitForFinalResultSignal()
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+            }
+            _ = await group.next()
+            group.cancelAll()
+        }
+    }
+
     /// Phase 2: Cancel recognition and finish the transcript stream.
     /// Call this after a brief delay so the recognition engine can deliver final segments.
     func finishOutputStream() {
@@ -92,6 +110,7 @@ final class AudioPipeline {
         recognitionTask = nil
         recognitionRequest = nil
         transcriptContinuation?.finish()
+        signalFinalResultIfNeeded()
         NSLog("[AudioPipeline] Finished — produced \(segmentIndex) segments across \(restartCount + 1) recognition sessions")
     }
 
@@ -154,13 +173,26 @@ final class AudioPipeline {
 
                 if isFinal {
                     NSLog("[AudioPipeline] Recognition session ended (final result)")
-                    self.restartRecognitionIfNeeded()
+                    if self.isProcessing {
+                        self.restartRecognitionIfNeeded()
+                    } else {
+                        self.recognitionTask?.cancel()
+                        self.recognitionTask = nil
+                        self.recognitionRequest = nil
+                        self.signalFinalResultIfNeeded()
+                    }
                 }
             }
 
             if let error = error {
                 NSLog("[AudioPipeline] Recognition error: \(error.localizedDescription)")
-                self.restartRecognitionIfNeeded()
+                if self.isProcessing {
+                    self.restartRecognitionIfNeeded()
+                } else {
+                    self.recognitionTask = nil
+                    self.recognitionRequest = nil
+                    self.signalFinalResultIfNeeded()
+                }
             }
         }
     }
@@ -216,5 +248,20 @@ final class AudioPipeline {
     private func currentTimestamp() -> TimeInterval {
         guard let start = sessionStartTime else { return 0 }
         return Date().timeIntervalSince(start)
+    }
+
+    private func waitForFinalResultSignal() async {
+        await withCheckedContinuation { continuation in
+            if recognitionTask == nil {
+                continuation.resume()
+            } else {
+                finalResultContinuation = continuation
+            }
+        }
+    }
+
+    private func signalFinalResultIfNeeded() {
+        finalResultContinuation?.resume()
+        finalResultContinuation = nil
     }
 }

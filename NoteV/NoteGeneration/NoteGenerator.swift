@@ -55,7 +55,7 @@ final class NoteGenerator {
         NSLog("[NoteGenerator] Image mapping built — \(imageMap.count) entries")
 
         // 5. Parse response into StructuredNotes (pass mapping directly — no mutable state)
-        let notes = noteParser.parse(markdown: response, imageFilenameMap: imageMap)
+        let notes = noteParser.parse(markdown: response, imageFilenameMap: imageMap, modelUsed: SettingsManager.shared.llmModel)
         NSLog("[NoteGenerator] Notes parsed — \"\(notes.title)\", \(notes.sections.count) sections")
 
         return notes

@@ -102,6 +102,13 @@ final class SessionRecorder: ObservableObject {
             throw NSError(domain: "SessionRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "No capture provider available"])
         }
 
+        // Wire FramePipeline burst mode → PhoneCaptureProvider sampling interval
+        if let phoneProvider = provider as? PhoneCaptureProvider {
+            framePipeline.onSamplingIntervalChanged = { [weak phoneProvider] interval in
+                phoneProvider?.setSamplingInterval(interval)
+            }
+        }
+
         // Access streams (must be accessed before starting pipelines)
         let audioStream = provider.audioStream
         let frameStream = provider.frameStream
@@ -152,8 +159,8 @@ final class SessionRecorder: ObservableObject {
         // 4. Signal recognition engine to produce final result (endAudio, not cancel)
         audioPipeline.endAudioInput()
 
-        // 5. Brief delay for recognition to deliver final segments
-        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+        // 5. Wait for terminal recognition callback (with timeout fallback)
+        await audioPipeline.waitForFinalResult(timeoutNanoseconds: 2_000_000_000)
 
         // 6. Now safe to finish output streams → collectors' for-await loops exit
         audioPipeline.finishOutputStream()

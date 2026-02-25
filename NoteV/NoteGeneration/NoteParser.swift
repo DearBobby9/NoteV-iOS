@@ -98,8 +98,13 @@ final class NoteParser {
 
             case .parsingSection:
                 // Check for image references: ![image_N](caption)
-                if let imageRef = parseImageReference(trimmed, imageFilenameMap: imageFilenameMap) {
-                    currentSectionImages.append(imageRef)
+                if trimmed.hasPrefix("![") {
+                    if let imageRef = parseImageReference(trimmed, imageFilenameMap: imageFilenameMap) {
+                        currentSectionImages.append(imageRef)
+                    } else {
+                        // Intentionally skip broken/unmapped image refs instead of leaking raw markdown.
+                        continue
+                    }
                 } else {
                     currentSectionContent.append(line)
                 }

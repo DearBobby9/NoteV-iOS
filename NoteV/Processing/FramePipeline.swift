@@ -18,6 +18,15 @@ final class FramePipeline {
     private var lastSampleTime: TimeInterval = -999
     private var isProcessing = false
 
+    // Burst mode: temporarily increase sampling rate after large visual change
+    private var burstFramesRemaining: Int = 0
+    private let burstFrameCount: Int = NoteVConfig.Frame.burstFrameCount
+    private let burstSamplingInterval: TimeInterval = 1.0
+
+    /// Callback to dynamically adjust capture provider's sampling interval.
+    /// Set by SessionRecorder to bridge FramePipeline → PhoneCaptureProvider.
+    var onSamplingIntervalChanged: ((TimeInterval) -> Void)?
+
     private let ciContext = CIContext()
 
     lazy var significantFrameStream: AsyncStream<TimestampedFrame> = {
@@ -50,11 +59,8 @@ final class FramePipeline {
 
             frameIndex += 1
 
-            // Throttle: only process 1 frame per sampling interval
-            let timeSinceLastSample = frame.timestamp - lastSampleTime
-            guard timeSinceLastSample >= NoteVConfig.Frame.periodicSamplingInterval else {
-                continue
-            }
+            // Throttle removed from FramePipeline — PhoneCaptureProvider now pre-throttles.
+            // Every frame that arrives here has already passed the time gate.
 
             lastSampleTime = frame.timestamp
 
@@ -73,6 +79,21 @@ final class FramePipeline {
                 ? .changeDetected
                 : .periodic
 
+            // Burst mode: on significant change, speed up sampling for a few frames
+            if trigger == .changeDetected && burstFramesRemaining == 0 {
+                burstFramesRemaining = burstFrameCount
+                onSamplingIntervalChanged?(burstSamplingInterval)
+                NSLog("[FramePipeline] Burst mode ON — \(burstFrameCount) frames at \(burstSamplingInterval)s interval")
+            }
+
+            if burstFramesRemaining > 0 {
+                burstFramesRemaining -= 1
+                if burstFramesRemaining == 0 {
+                    onSamplingIntervalChanged?(NoteVConfig.Frame.periodicSamplingInterval)
+                    NSLog("[FramePipeline] Burst mode OFF — back to \(NoteVConfig.Frame.periodicSamplingInterval)s interval")
+                }
+            }
+
             // Create output frame with updated metadata
             let outputFrame = TimestampedFrame(
                 timestamp: frame.timestamp,
@@ -85,7 +106,7 @@ final class FramePipeline {
             significantFrameCount += 1
             frameContinuation?.yield(outputFrame)
 
-            NSLog("[FramePipeline] Frame #\(significantFrameCount) at \(String(format: "%.1f", frame.timestamp))s — trigger: \(trigger.rawValue), change: \(String(format: "%.3f", changeScore))")
+            NSLog("[FramePipeline] Frame #\(significantFrameCount) at \(String(format: "%.1f", frame.timestamp))s — trigger: \(trigger.rawValue), change: \(String(format: "%.3f", changeScore))\(burstFramesRemaining > 0 ? " [burst: \(burstFramesRemaining) left]" : "")")
         }
 
         NSLog("[FramePipeline] Processing loop ended — \(significantFrameCount) significant frames produced")
@@ -100,6 +121,7 @@ final class FramePipeline {
         frameIndex = 0
         significantFrameCount = 0
         lastSampleTime = -999
+        burstFramesRemaining = 0
     }
 
     // MARK: - Change Detection
