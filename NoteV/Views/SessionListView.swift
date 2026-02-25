@@ -5,6 +5,7 @@ import SwiftUI
 /// List of past recording sessions with navigation to view notes.
 struct SessionListView: View {
     @EnvironmentObject var appState: AppState
+    @State private var sessionToDelete: SessionData?
 
     var body: some View {
         ZStack {
@@ -63,14 +64,48 @@ struct SessionListView: View {
                         }
                     }
                     .listRowBackground(NoteVConfig.Design.surface)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            sessionToDelete = session
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .confirmationDialog(
+                    "Delete this session?",
+                    isPresented: Binding(
+                        get: { sessionToDelete != nil },
+                        set: { if !$0 { sessionToDelete = nil } }
+                    ),
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive) {
+                        if let session = sessionToDelete {
+                            deleteSession(session)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {
+                        sessionToDelete = nil
+                    }
+                }
             }
         }
         .navigationTitle("Sessions")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    private func deleteSession(_ session: SessionData) {
+        do {
+            try SessionStore().delete(sessionId: session.id)
+            appState.pastSessions.removeAll { $0.id == session.id }
+            NSLog("[SessionListView] Deleted session: \(session.id)")
+        } catch {
+            NSLog("[SessionListView] ERROR deleting session: \(error.localizedDescription)")
+        }
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {

@@ -7,6 +7,7 @@ import SwiftUI
 struct BookmarkIndicator: View {
     @EnvironmentObject var appState: AppState
     @State private var isVisible = false
+    @State private var hideTask: Task<Void, Never>?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -29,11 +30,19 @@ struct BookmarkIndicator: View {
         }
         .animation(.spring(response: 0.3), value: isVisible)
         .onChange(of: appState.bookmarkCount) { _, _ in
-            // Show indicator briefly on new bookmark
+            // Cancel previous hide timer and restart 2s window
+            hideTask?.cancel()
             isVisible = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            hideTask = Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard !Task.isCancelled else { return }
                 isVisible = false
             }
+        }
+        .onDisappear {
+            hideTask?.cancel()
+            hideTask = nil
+            isVisible = false
         }
     }
 }
