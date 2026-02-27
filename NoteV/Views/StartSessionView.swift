@@ -10,6 +10,7 @@ struct StartSessionView: View {
     @EnvironmentObject var sessionRecorder: SessionRecorder
     @StateObject private var captureManager = CaptureManager()
     @State private var showSettings = false
+    @State private var selectedSource: CaptureSource = .phone
 
     var body: some View {
         ZStack {
@@ -38,6 +39,11 @@ struct StartSessionView: View {
                 // Glasses Connection Status
                 GlassesConnectionCard(captureManager: captureManager)
 
+                // Capture Source Picker (visible when glasses connected)
+                if !captureManager.connectedDevices.isEmpty {
+                    CaptureSourcePicker(selectedSource: $selectedSource)
+                }
+
                 Spacer()
 
                 // Start Button
@@ -52,14 +58,17 @@ struct StartSessionView: View {
                             .background(NoteVConfig.Design.accent.opacity(0.7))
                             .cornerRadius(NoteVConfig.Design.cornerRadius)
                     } else {
-                        Text("Start Class")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(NoteVConfig.Design.accent)
-                            .cornerRadius(NoteVConfig.Design.cornerRadius)
+                        HStack(spacing: 8) {
+                            Image(systemName: selectedSource == .glasses ? "eyeglasses" : "iphone")
+                            Text("Start Class")
+                        }
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(NoteVConfig.Design.accent)
+                        .cornerRadius(NoteVConfig.Design.cornerRadius)
                     }
                 }
                 .padding(.horizontal, NoteVConfig.Design.padding)
@@ -114,6 +123,18 @@ struct StartSessionView: View {
         .onAppear {
             loadPastSessions()
         }
+        .onChange(of: captureManager.connectedDevices) { oldDevices, newDevices in
+            // Auto-select glasses when they first connect
+            if oldDevices.isEmpty && !newDevices.isEmpty {
+                selectedSource = .glasses
+                NSLog("[StartSessionView] Glasses connected — auto-selected glasses source")
+            }
+            // Force phone when glasses disconnect and user had glasses selected
+            else if !oldDevices.isEmpty && newDevices.isEmpty && selectedSource == .glasses {
+                selectedSource = .phone
+                NSLog("[StartSessionView] Glasses disconnected — falling back to phone source")
+            }
+        }
         .alert("Glasses Error", isPresented: Binding(
             get: { captureManager.glassesError != nil },
             set: { if !$0 { captureManager.dismissGlassesError() } }
@@ -128,7 +149,8 @@ struct StartSessionView: View {
 
     private func startSession() {
         guard appState.sessionStatus != .starting && appState.sessionStatus != .recording else { return }
-        NSLog("[StartSessionView] Start Class tapped")
+        let source = selectedSource
+        NSLog("[StartSessionView] Start Class tapped — source: \(source.rawValue)")
         appState.reset()
         appState.sessionStatus = .starting
 
@@ -137,8 +159,18 @@ struct StartSessionView: View {
             let permissionsGranted = await checkPermissions()
             guard permissionsGranted else { return }
 
+            // Re-validate glasses connectivity after async permission checks
+            let finalSource: CaptureSource
+            if source == .glasses && captureManager.connectedDevices.isEmpty {
+                NSLog("[StartSessionView] Glasses disconnected during permission check — falling back to phone")
+                finalSource = .phone
+                selectedSource = .phone
+            } else {
+                finalSource = source
+            }
+
             do {
-                try await sessionRecorder.startRecording()
+                try await sessionRecorder.startRecording(preferredSource: finalSource)
                 appState.navigationPath.append(NavigationDestination.liveSession)
             } catch {
                 NSLog("[StartSessionView] ERROR starting session: \(error.localizedDescription)")
@@ -261,6 +293,51 @@ private struct GlassesConnectionCard: View {
             return "Registered — Waiting for Glasses"
         } else {
             return "Using iPhone Camera"
+        }
+    }
+}
+
+// MARK: - CaptureSourcePicker
+
+/// Two-option picker for selecting glasses or phone camera.
+private struct CaptureSourcePicker: View {
+    @Binding var selectedSource: CaptureSource
+
+    var body: some View {
+        HStack(spacing: 0) {
+            sourceOption(
+                source: .glasses,
+                icon: "eyeglasses",
+                label: "Glasses"
+            )
+            sourceOption(
+                source: .phone,
+                icon: "iphone",
+                label: "iPhone"
+            )
+        }
+        .background(NoteVConfig.Design.surface)
+        .cornerRadius(NoteVConfig.Design.cornerRadius)
+        .padding(.horizontal, NoteVConfig.Design.padding)
+    }
+
+    private func sourceOption(source: CaptureSource, icon: String, label: String) -> some View {
+        let isSelected = selectedSource == source
+        return Button {
+            selectedSource = source
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.callout)
+                Text(label)
+                    .font(.callout)
+                    .fontWeight(isSelected ? .semibold : .regular)
+            }
+            .foregroundColor(isSelected ? .black : NoteVConfig.Design.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(isSelected ? NoteVConfig.Design.accent : Color.clear)
+            .cornerRadius(NoteVConfig.Design.cornerRadius)
         }
     }
 }

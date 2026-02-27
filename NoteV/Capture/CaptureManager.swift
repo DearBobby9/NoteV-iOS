@@ -116,12 +116,14 @@ final class CaptureManager: ObservableObject {
 
     // MARK: - Provider Selection
 
-    /// Select the best available capture provider.
-    func selectProvider() -> any CaptureProvider {
-        if glassesProvider.isAvailable {
+    /// Select capture provider based on user's explicit choice.
+    /// When `preferredSource` is `.glasses`, uses glasses provider directly
+    /// (bypasses async isAvailable check — the UI already confirmed glasses are connected).
+    func selectProvider(preferredSource: CaptureSource = .phone) -> any CaptureProvider {
+        if preferredSource == .glasses {
             activeSource = .glasses
             activeProvider = glassesProvider
-            NSLog("[CaptureManager] Selected glasses capture provider")
+            NSLog("[CaptureManager] Selected glasses capture provider (user choice)")
             return glassesProvider
         } else if phoneProvider.isAvailable {
             activeSource = .phone
@@ -139,9 +141,9 @@ final class CaptureManager: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Start capture with the selected provider.
-    func startCapture() async throws {
-        let provider = selectProvider()
+    /// Start capture with the user-selected provider.
+    func startCapture(preferredSource: CaptureSource = .phone) async throws {
+        let provider = selectProvider(preferredSource: preferredSource)
         do {
             try await provider.startCapture()
             NSLog("[CaptureManager] Capture started via \(activeSource.rawValue)")

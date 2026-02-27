@@ -57,10 +57,10 @@ final class SessionRecorder: ObservableObject {
 
     // MARK: - Recording Lifecycle
 
-    /// Start a new recording session.
+    /// Start a new recording session with the user's preferred capture source.
     /// Creates fresh pipeline instances each time to avoid stale AsyncStream issues.
-    func startRecording() async throws {
-        NSLog("[SessionRecorder] startRecording() called")
+    func startRecording(preferredSource: CaptureSource = .phone) async throws {
+        NSLog("[SessionRecorder] startRecording(preferredSource: \(preferredSource.rawValue)) called")
 
         let newSessionId = UUID()
         sessionId = newSessionId
@@ -78,9 +78,9 @@ final class SessionRecorder: ObservableObject {
 
         appState?.sessionStatus = .recording
 
-        // Start capture (selects provider automatically)
+        // Start capture with user's preferred source
         do {
-            try await captureManager.startCapture()
+            try await captureManager.startCapture(preferredSource: preferredSource)
         } catch {
             // [P2 fix] Roll back state on failure
             NSLog("[SessionRecorder] ERROR: startCapture failed — rolling back state")
@@ -102,12 +102,14 @@ final class SessionRecorder: ObservableObject {
         }
 
         // Update UI status based on active source
+        appState?.activeCaptureSource = captureManager.activeSource
         if captureManager.activeSource == .glasses {
             appState?.glassesStatus = .active
             appState?.phoneStatus = .connected
         } else {
             appState?.phoneStatus = .active
         }
+        NSLog("[SessionRecorder] Active capture source: \(captureManager.activeSource.rawValue)")
 
         // Wire FramePipeline burst mode → provider sampling interval
         if let phoneProvider = provider as? PhoneCaptureProvider {
