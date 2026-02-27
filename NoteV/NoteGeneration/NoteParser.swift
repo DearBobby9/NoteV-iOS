@@ -29,6 +29,9 @@ final class NoteParser {
         var currentSectionTitle: String?
         var currentSectionContent: [String] = []
         var currentSectionImages: [NoteImage] = []
+        var currentSectionStartTime: TimeInterval?
+        var currentSectionEndTime: TimeInterval?
+        var currentSectionIsBookmark: Bool = false
         var sectionOrder = 0
         var parsingState: ParsingState = .seekingTitle
 
@@ -50,17 +53,30 @@ final class NoteParser {
                     content: &currentSectionContent,
                     images: &currentSectionImages,
                     sections: &sections,
-                    order: &sectionOrder
+                    order: &sectionOrder,
+                    startTime: &currentSectionStartTime,
+                    endTime: &currentSectionEndTime,
+                    isBookmark: &currentSectionIsBookmark
                 )
 
-                let sectionName = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                let rawSectionName = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
 
-                if sectionName.lowercased() == "summary" {
+                if rawSectionName.lowercased() == "summary" {
                     parsingState = .parsingSummary
-                } else if sectionName.lowercased() == "key takeaways" || sectionName.lowercased() == "key points" {
+                } else if rawSectionName.lowercased() == "key takeaways" || rawSectionName.lowercased() == "key points" {
                     parsingState = .parsingTakeaways
                 } else {
-                    currentSectionTitle = sectionName
+                    let (cleanTitle, startTime, endTime) = parseTimestampRange(from: rawSectionName)
+                    let isBookmark = cleanTitle.hasPrefix("[BOOKMARK]") || cleanTitle.localizedCaseInsensitiveContains("bookmark")
+                    let displayTitle = cleanTitle
+                        .replacingOccurrences(of: "[BOOKMARK] ", with: "")
+                        .replacingOccurrences(of: "[BOOKMARK]", with: "")
+                        .trimmingCharacters(in: .whitespaces)
+
+                    currentSectionTitle = displayTitle
+                    currentSectionStartTime = startTime
+                    currentSectionEndTime = endTime
+                    currentSectionIsBookmark = isBookmark
                     parsingState = .parsingSection
                 }
                 continue
@@ -117,7 +133,10 @@ final class NoteParser {
             content: &currentSectionContent,
             images: &currentSectionImages,
             sections: &sections,
-            order: &sectionOrder
+            order: &sectionOrder,
+            startTime: &currentSectionStartTime,
+            endTime: &currentSectionEndTime,
+            isBookmark: &currentSectionIsBookmark
         )
 
         // Fallback: if no sections parsed, put entire content as one section
@@ -156,7 +175,10 @@ final class NoteParser {
         content: inout [String],
         images: inout [NoteImage],
         sections: inout [NoteSection],
-        order: inout Int
+        order: inout Int,
+        startTime: inout TimeInterval?,
+        endTime: inout TimeInterval?,
+        isBookmark: inout Bool
     ) {
         guard let sectionTitle = title else { return }
 
@@ -166,7 +188,10 @@ final class NoteParser {
                 title: sectionTitle,
                 content: sectionContent,
                 images: images,
-                order: order
+                order: order,
+                startTime: startTime,
+                endTime: endTime,
+                isBookmarkSection: isBookmark
             ))
             order += 1
         }
@@ -174,6 +199,35 @@ final class NoteParser {
         title = nil
         content = []
         images = []
+        startTime = nil
+        endTime = nil
+        isBookmark = false
+    }
+
+    /// Parse "[MM:SS-MM:SS]" from end of section title.
+    /// Returns (cleanTitle, startTime, endTime) or (originalTitle, nil, nil) if no timestamp found.
+    private func parseTimestampRange(from rawTitle: String) -> (String, TimeInterval?, TimeInterval?) {
+        let pattern = #"\[(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\]\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: rawTitle, range: NSRange(rawTitle.startIndex..., in: rawTitle)) else {
+            return (rawTitle, nil, nil)
+        }
+
+        let startRange = Range(match.range(at: 1), in: rawTitle)!
+        let endRange = Range(match.range(at: 2), in: rawTitle)!
+        let matchFullRange = Range(match.range, in: rawTitle)!
+
+        let cleanTitle = String(rawTitle[..<matchFullRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let startTime = parseMMSS(String(rawTitle[startRange]))
+        let endTime = parseMMSS(String(rawTitle[endRange]))
+
+        return (cleanTitle, startTime, endTime)
+    }
+
+    private func parseMMSS(_ str: String) -> TimeInterval? {
+        let parts = str.split(separator: ":")
+        guard parts.count == 2, let mins = Int(parts[0]), let secs = Int(parts[1]) else { return nil }
+        return TimeInterval(mins * 60 + secs)
     }
 
     /// Parse ![image_N](caption) into NoteImage using the authoritative mapping.

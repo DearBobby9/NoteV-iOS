@@ -36,13 +36,20 @@ final class PromptBuilder {
     - [takeaway 2]
     ...
 
-    ## [Section Title]
+    ## [Section Title] [MM:SS-MM:SS]
     [Content with references to images where relevant]
     ![image_N](description of what the image shows)
+
+    ## [BOOKMARK] Bookmarked Highlights [MM:SS-MM:SS]
+    [Important moments the student bookmarked]
 
     ...
 
     Guidelines:
+    - Include a timestamp range [MM:SS-MM:SS] after each section title, indicating the \
+    approximate start and end time of the lecture content covered in that section
+    - For bookmarked highlight sections, prefix the title with [BOOKMARK] \
+    (e.g., "## [BOOKMARK] Important Moment [05:30-06:15]")
     - Integrate visual content naturally with spoken content
     - Note when a slide or diagram illustrates a concept from the lecture
     - Use markdown formatting for structure

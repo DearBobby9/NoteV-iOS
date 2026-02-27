@@ -58,6 +58,48 @@ final class NoteGenerator {
         let notes = noteParser.parse(markdown: response, imageFilenameMap: imageMap, modelUsed: SettingsManager.shared.llmModel)
         NSLog("[NoteGenerator] Notes parsed — \"\(notes.title)\", \(notes.sections.count) sections")
 
-        return notes
+        // 6. Backfill image timestamps from actual frame capture data
+        let enrichedNotes = enrichImageTimestamps(notes, includedFrames: includedFrames)
+        return enrichedNotes
+    }
+
+    // MARK: - Helpers
+
+    /// Backfill NoteImage.timestamp from actual frame capture times.
+    private func enrichImageTimestamps(_ notes: StructuredNotes, includedFrames: [TimestampedFrame]) -> StructuredNotes {
+        let timestampLookup: [String: TimeInterval] = Dictionary(
+            uniqueKeysWithValues: includedFrames.map { ($0.imageFilename, $0.timestamp) }
+        )
+
+        let enrichedSections = notes.sections.map { section in
+            let enrichedImages = section.images.map { image in
+                NoteImage(
+                    id: image.id,
+                    filename: image.filename,
+                    caption: image.caption,
+                    timestamp: timestampLookup[image.filename] ?? image.timestamp
+                )
+            }
+            return NoteSection(
+                id: section.id,
+                title: section.title,
+                content: section.content,
+                images: enrichedImages,
+                order: section.order,
+                startTime: section.startTime,
+                endTime: section.endTime,
+                isBookmarkSection: section.isBookmarkSection
+            )
+        }
+
+        return StructuredNotes(
+            id: notes.id,
+            title: notes.title,
+            summary: notes.summary,
+            sections: enrichedSections,
+            keyTakeaways: notes.keyTakeaways,
+            generatedAt: notes.generatedAt,
+            modelUsed: notes.modelUsed
+        )
     }
 }
