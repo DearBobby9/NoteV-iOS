@@ -77,7 +77,6 @@ final class SessionRecorder: ObservableObject {
         framePipeline = FramePipeline()
 
         appState?.sessionStatus = .recording
-        appState?.phoneStatus = .active
 
         // Start capture (selects provider automatically)
         do {
@@ -102,10 +101,22 @@ final class SessionRecorder: ObservableObject {
             throw NSError(domain: "SessionRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "No capture provider available"])
         }
 
-        // Wire FramePipeline burst mode → PhoneCaptureProvider sampling interval
+        // Update UI status based on active source
+        if captureManager.activeSource == .glasses {
+            appState?.glassesStatus = .active
+            appState?.phoneStatus = .connected
+        } else {
+            appState?.phoneStatus = .active
+        }
+
+        // Wire FramePipeline burst mode → provider sampling interval
         if let phoneProvider = provider as? PhoneCaptureProvider {
             framePipeline.onSamplingIntervalChanged = { [weak phoneProvider] interval in
                 phoneProvider?.setSamplingInterval(interval)
+            }
+        } else if let glassesProvider = provider as? GlassesCaptureProvider {
+            framePipeline.onSamplingIntervalChanged = { [weak glassesProvider] interval in
+                glassesProvider?.setSamplingInterval(interval)
             }
         }
 

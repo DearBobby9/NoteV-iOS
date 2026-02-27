@@ -8,6 +8,7 @@ import Speech
 struct StartSessionView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var sessionRecorder: SessionRecorder
+    @StateObject private var captureManager = CaptureManager()
     @State private var showSettings = false
 
     var body: some View {
@@ -34,20 +35,8 @@ struct StartSessionView: View {
                         .foregroundColor(NoteVConfig.Design.textSecondary)
                 }
 
-                // Connection Status
-                HStack(spacing: 12) {
-                    Circle()
-                        .fill(appState.isGlassesAvailable ? Color.green : NoteVConfig.Design.textSecondary)
-                        .frame(width: 10, height: 10)
-
-                    Text(appState.isGlassesAvailable ? "Glasses Connected" : "Using iPhone Camera")
-                        .font(.callout)
-                        .foregroundColor(NoteVConfig.Design.textSecondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(NoteVConfig.Design.surface)
-                .cornerRadius(NoteVConfig.Design.cornerRadius)
+                // Glasses Connection Status
+                GlassesConnectionCard(captureManager: captureManager)
 
                 Spacer()
 
@@ -125,6 +114,14 @@ struct StartSessionView: View {
         .onAppear {
             loadPastSessions()
         }
+        .alert("Glasses Error", isPresented: Binding(
+            get: { captureManager.glassesError != nil },
+            set: { if !$0 { captureManager.dismissGlassesError() } }
+        )) {
+            Button("OK") { captureManager.dismissGlassesError() }
+        } message: {
+            Text(captureManager.glassesError ?? "")
+        }
     }
 
     // MARK: - Actions
@@ -187,6 +184,84 @@ struct StartSessionView: View {
         let store = SessionStore()
         appState.pastSessions = store.loadAllSessions()
         NSLog("[StartSessionView] Loaded \(appState.pastSessions.count) past sessions")
+    }
+}
+
+// MARK: - GlassesConnectionCard
+
+/// Interactive glasses connection status card with connect/disconnect actions.
+private struct GlassesConnectionCard: View {
+    @ObservedObject var captureManager: CaptureManager
+
+    var body: some View {
+        VStack(spacing: 10) {
+            // Status row
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 10, height: 10)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(statusText)
+                        .font(.callout)
+                        .foregroundColor(NoteVConfig.Design.textPrimary)
+
+                    if let name = captureManager.firstDeviceName {
+                        Text(name)
+                            .font(.caption)
+                            .foregroundColor(NoteVConfig.Design.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                // Action button
+                if captureManager.isRegistering {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
+                        .scaleEffect(0.8)
+                } else if captureManager.isGlassesRegistered {
+                    Button("Disconnect") {
+                        captureManager.disconnectGlasses()
+                    }
+                    .font(.caption)
+                    .foregroundColor(NoteVConfig.Design.textSecondary)
+                } else {
+                    Button("Connect Glasses") {
+                        captureManager.connectGlasses()
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(NoteVConfig.Design.accent)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(NoteVConfig.Design.surface)
+        .cornerRadius(NoteVConfig.Design.cornerRadius)
+        .padding(.horizontal, NoteVConfig.Design.padding)
+    }
+
+    private var statusColor: Color {
+        if !captureManager.connectedDevices.isEmpty {
+            return .green
+        } else if captureManager.isRegistering {
+            return .yellow
+        } else {
+            return NoteVConfig.Design.textSecondary
+        }
+    }
+
+    private var statusText: String {
+        if !captureManager.connectedDevices.isEmpty {
+            return "Glasses Connected"
+        } else if captureManager.isRegistering {
+            return "Connecting..."
+        } else if captureManager.isGlassesRegistered {
+            return "Registered — Waiting for Glasses"
+        } else {
+            return "Using iPhone Camera"
+        }
     }
 }
 
