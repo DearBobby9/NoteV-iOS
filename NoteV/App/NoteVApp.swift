@@ -41,6 +41,19 @@ struct NoteVApp: App {
             .task {
                 sessionRecorder.setAppState(appState)
             }
+            .onOpenURL { url in
+                guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                      components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+                else { return }
+                Task {
+                    do {
+                        _ = try await Wearables.shared.handleUrl(url)
+                        NSLog("[NoteVApp] DAT callback handled: \(url)")
+                    } catch {
+                        NSLog("[NoteVApp] DAT callback error: \(error)")
+                    }
+                }
+            }
         }
     }
 }
