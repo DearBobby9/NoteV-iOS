@@ -39,12 +39,13 @@ enum APIKeys {
     }
 
     // MARK: - Meta (DAT SDK)
+    // MetaAppID=0 is Developer Mode (no ClientToken needed).
+    // Replace with real Application ID from wearables.developer.meta.com for production.
 
-    static let metaAppID = "YOUR_META_APP_ID"
-    static let metaClientToken = "YOUR_META_CLIENT_TOKEN"
+    static let metaAppID = "0"
 
     static var isMetaConfigured: Bool {
-        metaAppID != "YOUR_META_APP_ID" && !metaAppID.isEmpty
+        !metaAppID.isEmpty
     }
 
     // MARK: - Validation

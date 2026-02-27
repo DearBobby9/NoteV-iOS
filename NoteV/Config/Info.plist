@@ -46,7 +46,9 @@
 		<key>MetaAppID</key>
 		<string>YOUR_META_APP_ID</string>
 		<key>ClientToken</key>
-		<string>YOUR_CLIENT_TOKEN</string>
+		<string>YOUR_META_CLIENT_TOKEN</string>
+		<key>TeamID</key>
+		<string>$(DEVELOPMENT_TEAM)</string>
 	</dict>
 
 	<!-- URL Schemes -->
@@ -73,6 +75,12 @@
 	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
+
+	<!-- External Accessory Protocols (required for Meta glasses discovery) -->
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.meta.ar.wearable</string>
+	</array>
 
 	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
