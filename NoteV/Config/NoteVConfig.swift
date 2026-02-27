@@ -95,6 +95,13 @@ enum NoteVConfig {
 
         static let cornerRadius: CGFloat = 12
         static let padding: CGFloat = 16
+
+        // Timeline-specific
+        static let timelineRailWidth: CGFloat = 2
+        static let timelineRailColor = textSecondary.opacity(0.3)
+        static let timelineDotSize: CGFloat = 8
+        static let timelineSectionDotSize: CGFloat = 12
+        static let timelineGutterWidth: CGFloat = 44
     }
 }
 

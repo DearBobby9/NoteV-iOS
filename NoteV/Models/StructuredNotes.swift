@@ -38,19 +38,58 @@ struct NoteSection: Identifiable, Codable, Sendable {
     let images: [NoteImage]
     /// Order index for display
     let order: Int
+    /// Start time in seconds since session start (nil for legacy data)
+    let startTime: TimeInterval?
+    /// End time in seconds since session start (nil for legacy data)
+    let endTime: TimeInterval?
+    /// Whether this section covers bookmarked highlights
+    let isBookmarkSection: Bool
 
     init(
         id: UUID = UUID(),
         title: String,
         content: String = "",
         images: [NoteImage] = [],
-        order: Int = 0
+        order: Int = 0,
+        startTime: TimeInterval? = nil,
+        endTime: TimeInterval? = nil,
+        isBookmarkSection: Bool = false
     ) {
         self.id = id
         self.title = title
         self.content = content
         self.images = images
         self.order = order
+        self.startTime = startTime
+        self.endTime = endTime
+        self.isBookmarkSection = isBookmarkSection
+    }
+}
+
+// MARK: - NoteSection Timeline Helpers
+
+extension NoteSection {
+    /// Effective start time: explicit value, or earliest image timestamp
+    var effectiveStartTime: TimeInterval? {
+        startTime ?? images.map(\.timestamp).filter { $0 > 0 }.min()
+    }
+
+    /// Effective end time: explicit value, or latest image timestamp
+    var effectiveEndTime: TimeInterval? {
+        endTime ?? images.map(\.timestamp).filter { $0 > 0 }.max()
+    }
+
+    /// Formatted time range string (e.g., "12:30 - 15:45")
+    var formattedTimeRange: String? {
+        guard let start = effectiveStartTime else { return nil }
+        let end = effectiveEndTime ?? start
+        return "\(NoteSection.formatTime(start)) - \(NoteSection.formatTime(end))"
+    }
+
+    private static func formatTime(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 }
 
