@@ -152,8 +152,14 @@ final class PDFGenerator {
             // Sections
             for section in notes.sections.sorted(by: { $0.order < $1.order }) {
                 ensureSpace(50)
+
+                var sectionTitle = section.title
+                if let range = section.formattedTimeRange {
+                    sectionTitle += "  [\(range)]"
+                }
+
                 y = drawTextPaginated(
-                    section.title,
+                    sectionTitle,
                     attributes: headingAttrs,
                     at: y,
                     width: contentWidth,

@@ -52,19 +52,33 @@ struct NotesResultView: View {
                         }
                     }
                 } else if let notes = appState.generatedNotes {
-                    // Notes ready
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            MultimodalNoteView(notes: notes, sessionId: appState.currentSession?.id)
-                                .padding(NoteVConfig.Design.padding)
+                    // Notes ready — timeline view with bottom action bar
+                    VStack(spacing: 0) {
+                        TimelineNoteView(notes: notes, sessionId: appState.currentSession?.id)
 
-                            // Action buttons
-                            HStack(spacing: 16) {
-                                // Text share button
-                                ShareLink(item: notesAsText(notes)) {
+                        // Action buttons bar
+                        HStack(spacing: 16) {
+                            // Text share button
+                            ShareLink(item: notesAsText(notes)) {
+                                HStack {
+                                    Image(systemName: "square.and.arrow.up")
+                                    Text("Text")
+                                }
+                                .font(.callout)
+                                .fontWeight(.medium)
+                                .foregroundColor(NoteVConfig.Design.accent)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(NoteVConfig.Design.surface)
+                                .cornerRadius(NoteVConfig.Design.cornerRadius)
+                            }
+
+                            // PDF share button
+                            if let url = currentPDFURL(for: notes) {
+                                ShareLink(item: url) {
                                     HStack {
-                                        Image(systemName: "square.and.arrow.up")
-                                        Text("Text")
+                                        Image(systemName: "doc.richtext")
+                                        Text("PDF")
                                     }
                                     .font(.callout)
                                     .fontWeight(.medium)
@@ -74,59 +88,43 @@ struct NotesResultView: View {
                                     .background(NoteVConfig.Design.surface)
                                     .cornerRadius(NoteVConfig.Design.cornerRadius)
                                 }
-
-                                // PDF share button
-                                if let url = currentPDFURL(for: notes) {
-                                    ShareLink(item: url) {
-                                        HStack {
-                                            Image(systemName: "doc.richtext")
-                                            Text("PDF")
-                                        }
-                                        .font(.callout)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(NoteVConfig.Design.accent)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 12)
-                                        .background(NoteVConfig.Design.surface)
-                                        .cornerRadius(NoteVConfig.Design.cornerRadius)
-                                    }
-                                } else {
-                                    Button(action: { generatePDF(notes: notes) }) {
-                                        HStack {
-                                            Image(systemName: "doc.richtext")
-                                            Text("PDF")
-                                        }
-                                        .font(.callout)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(NoteVConfig.Design.accent)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 12)
-                                        .background(NoteVConfig.Design.surface)
-                                        .cornerRadius(NoteVConfig.Design.cornerRadius)
-                                    }
-                                }
-
-                                // Done button
-                                Button(action: {
-                                    appState.navigationPath = NavigationPath()
-                                    appState.reset()
-                                }) {
+                            } else {
+                                Button(action: { generatePDF(notes: notes) }) {
                                     HStack {
-                                        Image(systemName: "checkmark.circle")
-                                        Text("Done")
+                                        Image(systemName: "doc.richtext")
+                                        Text("PDF")
                                     }
                                     .font(.callout)
                                     .fontWeight(.medium)
-                                    .foregroundColor(.black)
+                                    .foregroundColor(NoteVConfig.Design.accent)
                                     .padding(.horizontal, 20)
                                     .padding(.vertical, 12)
-                                    .background(NoteVConfig.Design.accent)
+                                    .background(NoteVConfig.Design.surface)
                                     .cornerRadius(NoteVConfig.Design.cornerRadius)
                                 }
                             }
-                            .padding(.horizontal, NoteVConfig.Design.padding)
-                            .padding(.bottom, 40)
+
+                            // Done button
+                            Button(action: {
+                                appState.navigationPath = NavigationPath()
+                                appState.reset()
+                            }) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle")
+                                    Text("Done")
+                                }
+                                .font(.callout)
+                                .fontWeight(.medium)
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(NoteVConfig.Design.accent)
+                                .cornerRadius(NoteVConfig.Design.cornerRadius)
+                            }
                         }
+                        .padding(.horizontal, NoteVConfig.Design.padding)
+                        .padding(.vertical, 12)
+                        .background(NoteVConfig.Design.background)
                     }
                 } else if case .error(let message) = appState.sessionStatus {
                     // Error state
@@ -289,7 +287,11 @@ struct NotesResultView: View {
         }
 
         for section in notes.sections.sorted(by: { $0.order < $1.order }) {
-            text += "## \(section.title)\n\(section.content)\n\n"
+            var header = "## \(section.title)"
+            if let range = section.formattedTimeRange {
+                header += " [\(range)]"
+            }
+            text += "\(header)\n\(section.content)\n\n"
         }
 
         text += "\n---\nGenerated by NoteV using \(notes.modelUsed)"

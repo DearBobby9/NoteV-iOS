@@ -18,6 +18,8 @@
 		4315BCC338877CDCEB40FEE8 /* PDFGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13A4EDF51480E12DCB2F413F /* PDFGenerator.swift */; };
 		46F02D5711FB7A248955B619 /* TimestampedFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */; };
 		4DB73242C8CD03FCD3B13F4E /* StructuredNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */; };
+		54EFE33CCC07CF3DD1A3EC83 /* TimelineNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432265139B08B1408BC5067C /* TimelineNoteView.swift */; };
+		506043AD61CE37D6B15B7196 /* TimelineTOCSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */; };
 		58A3E9459951871E2E70C8C1 /* BookmarkIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */; };
 		5BEB5FD6F8763E8C7CF99ACD /* FrameThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */; };
 		5E85350915AF55906B622CB3 /* StartSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */; };
@@ -88,6 +90,8 @@
 		9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteVConfig.swift; sourceTree = "<group>"; };
 		A7F3BFE281AFF9E00BF106D9 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
 		AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredNotes.swift; sourceTree = "<group>"; };
+		432265139B08B1408BC5067C /* TimelineNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineNoteView.swift; sourceTree = "<group>"; };
+		4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineTOCSheet.swift; sourceTree = "<group>"; };
 		B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptScrollView.swift; sourceTree = "<group>"; };
 		B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
 		BFAD7E6334C6D2841D53CB3C /* SessionData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionData.swift; sourceTree = "<group>"; };
@@ -228,6 +232,8 @@
 				30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */,
 				3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */,
 				C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */,
+				432265139B08B1408BC5067C /* TimelineNoteView.swift */,
+				4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */,
 				B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */,
 			);
 			path = Components;
@@ -392,6 +398,8 @@
 				7772E519ACA8F25B89B76CCA /* LLMService.swift in Sources */,
 				73E4CBC73A172F3621788948 /* LiveSessionView.swift in Sources */,
 				A203C5DE2F508C3E0BE37EAE /* MultimodalNoteView.swift in Sources */,
+				54EFE33CCC07CF3DD1A3EC83 /* TimelineNoteView.swift in Sources */,
+				506043AD61CE37D6B15B7196 /* TimelineTOCSheet.swift in Sources */,
 				C2D025977A5F0D9A965E1584 /* NoteGenerator.swift in Sources */,
 				6B24661D8255645208F4A795 /* NoteParser.swift in Sources */,
 				8DCC7820CBE2E9748511A851 /* NoteVApp.swift in Sources */,
