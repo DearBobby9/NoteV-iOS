@@ -12,6 +12,7 @@ enum SessionStatus: Equatable {
     case polishing          // Transcript polishing in progress
     case generatingNotes
     case extractingTodos    // TODO extraction in progress
+    case analyzingSlides    // Slide analysis in progress
     case complete
     case error(String)
 }
@@ -69,6 +70,8 @@ final class AppState: ObservableObject {
     @Published var latestFrameData: Data?
     @Published var bookmarkTimestamps: [TimeInterval] = []
     @Published var extractedTodos: [TodoItem] = []
+    @Published var autoBookmarkCount: Int = 0
+    @Published var latestAutoBookmarkPhrase: String?
 
     // MARK: - Past Sessions
 
@@ -107,6 +110,8 @@ final class AppState: ObservableObject {
         latestFrameData = nil
         bookmarkTimestamps = []
         extractedTodos = []
+        autoBookmarkCount = 0
+        latestAutoBookmarkPhrase = nil
         NSLog("[AppState] State reset to idle")
     }
 }

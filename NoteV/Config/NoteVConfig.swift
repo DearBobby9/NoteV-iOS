@@ -102,6 +102,51 @@ enum NoteVConfig {
         static let minConfidence: Int = 2
     }
 
+    // MARK: - Calendar Export
+
+    enum CalendarExport {
+        static let defaultListName = "NoteV Tasks"
+        static let enableCalendarEvents = true
+    }
+
+    // MARK: - Smart Bookmark
+
+    enum SmartBookmark {
+        static let enabled = true
+        static let confidenceThreshold: Double = 0.55
+        static let globalCooldownSeconds: TimeInterval = 8.0
+        static let rollingBufferSeconds: TimeInterval = 6.0
+        static let maxAutoBookmarksPerSession: Int = 30
+    }
+
+    // MARK: - Slide Analysis
+
+    enum SlideAnalysis {
+        static let enabled = true
+        static let pHashThreshold: Int = 12
+        static let maxUniqueSlides: Int = 40
+        static let sharpnessThreshold: Double = 50.0
+    }
+
+    // MARK: - Chat Voice (Deepgram for chat input)
+
+    enum ChatVoice {
+        /// Deepgram model for chat voice input
+        static let model: String = "nova-3"
+        /// Endpointing sensitivity in ms (shorter = more responsive)
+        static let endpointingMs: Int = 200
+        /// Silence duration in ms before auto-stop (5s for natural speech pauses)
+        static let utteranceEndMs: Int = 5000
+    }
+
+    // MARK: - Course Setup
+
+    enum CourseSetup {
+        static let earlyWindowMinutes: Int = 15
+        static let lateWindowMinutes: Int = 20
+        static let maxCourses: Int = 20
+    }
+
     // MARK: - Storage
 
     enum Storage {

@@ -35,6 +35,8 @@ final class ReminderSyncService: @unchecked Sendable {
 
     private init() {}
 
+    @MainActor private(set) var hasCalendarAccess = false
+
     // MARK: - Access
 
     /// Request full access to Reminders (iOS 17+).
@@ -43,7 +45,16 @@ final class ReminderSyncService: @unchecked Sendable {
     func requestAccess() async throws -> Bool {
         let granted = try await eventStore.requestFullAccessToReminders()
         hasAccess = granted
-        NSLog("[ReminderSyncService] Access \(granted ? "granted" : "denied")")
+        NSLog("[ReminderSyncService] Reminders access \(granted ? "granted" : "denied")")
+        return granted
+    }
+
+    /// Request full access to Calendar (iOS 17+).
+    @MainActor
+    func requestCalendarAccess() async throws -> Bool {
+        let granted = try await eventStore.requestFullAccessToEvents()
+        hasCalendarAccess = granted
+        NSLog("[ReminderSyncService] Calendar access \(granted ? "granted" : "denied")")
         return granted
     }
 
@@ -131,6 +142,42 @@ final class ReminderSyncService: @unchecked Sendable {
 
         NSLog("[ReminderSyncService] Batch committed \(pendingItems.count) reminders to '\(Self.listName)'")
         return updatedItems
+    }
+
+    // MARK: - Calendar Export
+
+    /// Export TodoItems marked as calendar events to iOS Calendar.
+    func exportToCalendar(_ items: [TodoItem], sessionTitle: String) async throws {
+        let hasAccess = await MainActor.run { self.hasCalendarAccess }
+        guard hasAccess else {
+            throw ReminderSyncError.accessDenied
+        }
+
+        for item in items {
+            let event = EKEvent(eventStore: eventStore)
+            event.title = item.title
+
+            if let dueDate = item.resolvedDueDate {
+                event.startDate = dueDate
+                event.endDate = dueDate.addingTimeInterval(3600) // 1 hour duration
+            } else {
+                // Default to tomorrow if no date
+                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                event.startDate = tomorrow
+                event.endDate = tomorrow.addingTimeInterval(3600)
+            }
+
+            event.notes = "From lecture: \(sessionTitle)\n\(item.sourceQuote)"
+            event.calendar = eventStore.defaultCalendarForNewEvents
+
+            // Add alert 1 hour before
+            event.addAlarm(EKAlarm(relativeOffset: -3600))
+
+            try eventStore.save(event, span: .thisEvent, commit: false)
+        }
+
+        try eventStore.commit()
+        NSLog("[ReminderSyncService] Exported \(items.count) calendar events")
     }
 
     // MARK: - Reminder List

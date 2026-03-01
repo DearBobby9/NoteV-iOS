@@ -103,6 +103,7 @@ final class PromptBuilder {
             case .periodic: triggerLabel = "periodic sample"
             case .changeDetected: triggerLabel = "slide/content change detected"
             case .bookmark: triggerLabel = "bookmarked moment"
+            case .smartBookmark: triggerLabel = "auto-detected important moment"
             }
 
             prompt += "- image_\(index + 1): captured at [\(timestamp)] (\(triggerLabel), change score: \(String(format: "%.2f", frame.changeScore)))\n"
@@ -110,19 +111,49 @@ final class PromptBuilder {
             includedFrames.append(frame)
         }
 
-        // 3. Mark bookmarked moments
-        if !session.bookmarks.isEmpty {
-            prompt += "\n## BOOKMARKED MOMENTS (marked as important by the student)\n\n"
-            for (index, bookmark) in session.bookmarks.enumerated() {
+        // 3. Mark bookmarked moments — separate manual and auto
+        let manualBookmarks = session.bookmarks.filter { $0.source == .manual }
+        let autoBookmarks = session.bookmarks.filter { $0.source == .auto }
+
+        if !manualBookmarks.isEmpty {
+            prompt += "\n## BOOKMARKED MOMENTS (manually marked as important by the student)\n\n"
+            for (index, bookmark) in manualBookmarks.enumerated() {
                 let timestamp = formatTimestamp(bookmark.timestamp)
                 prompt += "- Bookmark \(index + 1) at [\(timestamp)]: \"\(bookmark.surroundingTranscript.prefix(200))\"\n"
+            }
+        }
+
+        if !autoBookmarks.isEmpty {
+            prompt += "\n## AUTO-DETECTED IMPORTANT MOMENTS\n\n"
+            prompt += "These moments were automatically detected as potentially important:\n"
+            for (index, bookmark) in autoBookmarks.enumerated() {
+                let timestamp = formatTimestamp(bookmark.timestamp)
+                let confidence = bookmark.confidence.map { String(format: "%.0f%%", $0 * 100) } ?? "N/A"
+                let phrase = bookmark.triggerPhrase ?? "unknown"
+                prompt += "- Auto-bookmark \(index + 1) at [\(timestamp)] (confidence: \(confidence), trigger: \"\(phrase)\"): \"\(bookmark.surroundingTranscript.prefix(200))\"\n"
+            }
+        }
+
+        // 4. Slide content (if slide analysis was performed)
+        if let slideAnalysis = session.slideAnalysis, !slideAnalysis.uniqueSlides.isEmpty {
+            let slidesWithText = slideAnalysis.uniqueSlides.filter { $0.extractedText != nil }
+            if !slidesWithText.isEmpty {
+                prompt += "\n## SLIDE CONTENT (extracted via vision analysis)\n\n"
+                prompt += "The following slide contents were extracted from captured frames. Use them to structure your notes — each slide typically represents a topic or sub-topic.\n\n"
+                for slide in slidesWithText {
+                    let timestamp = formatTimestamp(slide.timestamp)
+                    prompt += "### Slide \(slide.slideNumber) at [\(timestamp)] (\(slide.duplicateCount) frames)\n"
+                    prompt += "\(slide.extractedText ?? "")\n\n"
+                }
             }
         }
 
         prompt += "\n## INSTRUCTIONS\n\n"
         prompt += "Please generate comprehensive, well-structured notes from this lecture. "
         prompt += "Integrate the visual content (slides, diagrams) with the spoken transcript. "
-        prompt += "Pay special attention to bookmarked moments as the student marked these as important. "
+        prompt += "If slide content is available, use it to organize notes by slide topics. "
+        prompt += "Pay special attention to manually bookmarked moments as the student marked these as important. "
+        prompt += "Auto-detected moments are emphasis hints — use them to highlight key content but treat them as lower confidence than manual bookmarks. "
         prompt += "If there are bookmarked moments, create a dedicated '## Bookmarked Highlights' section summarizing each bookmarked moment with its timestamp and importance. "
         prompt += "Reference the captured images using ![image_N](description) format.\n"
 

@@ -141,6 +141,7 @@ struct TranscriptTimelineView: View {
         case .periodic: return "clock"
         case .changeDetected: return "rectangle.on.rectangle"
         case .bookmark: return "bookmark.fill"
+        case .smartBookmark: return "sparkles"
         }
     }
 
@@ -149,6 +150,7 @@ struct TranscriptTimelineView: View {
         case .periodic: return "periodic"
         case .changeDetected: return "content change"
         case .bookmark: return "bookmarked"
+        case .smartBookmark: return "auto-bookmarked"
         }
     }
 }

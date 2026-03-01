@@ -10,6 +10,8 @@ enum FrameTrigger: String, Codable, Sendable {
     case changeDetected
     /// User-triggered bookmark
     case bookmark
+    /// Auto-detected important moment
+    case smartBookmark
 }
 
 // MARK: - TimestampedFrame

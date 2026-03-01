@@ -8,6 +8,10 @@ struct LiveSessionView: View {
     @EnvironmentObject var sessionRecorder: SessionRecorder
 
     @State private var isEndingSession = false
+    @State private var showCourseSheet = false
+    @State private var pendingSession: SessionData?
+    private let courseDetector = CourseDetector()
+    private let courseStore = CourseStore()
 
     var body: some View {
         ZStack {
@@ -52,11 +56,21 @@ struct LiveSessionView: View {
                     HStack(spacing: 12) {
                         Label("\(appState.frameCount)", systemImage: "photo")
                         Label("\(appState.bookmarkCount)", systemImage: "bookmark.fill")
+                        if appState.autoBookmarkCount > 0 {
+                            Label("\(appState.autoBookmarkCount)", systemImage: "sparkles")
+                                .foregroundColor(NoteVConfig.Design.accent)
+                        }
                     }
                     .font(.caption)
                     .foregroundColor(NoteVConfig.Design.textSecondary)
                 }
                 .padding(.horizontal, NoteVConfig.Design.padding)
+
+                // Course badge (if detected)
+                if let courseName = appState.currentSession?.courseName {
+                    CourseBadge(name: courseName, colorHex: "#00E5FF")
+                        .padding(.horizontal, NoteVConfig.Design.padding)
+                }
 
                 // Frame Thumbnail Area
                 FrameThumbnailView()
@@ -117,6 +131,17 @@ struct LiveSessionView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showCourseSheet) {
+            PostRecordingCourseSheet(
+                courses: courseStore.loadAll(),
+                onSelect: { course in
+                    tagSessionWithCourse(course)
+                },
+                onSkip: {
+                    // Continue without course tag
+                }
+            )
+        }
     }
 
     // MARK: - Actions
@@ -126,13 +151,27 @@ struct LiveSessionView: View {
         isEndingSession = true
 
         Task {
-            let session = await sessionRecorder.stopRecording()
+            var session = await sessionRecorder.stopRecording()
+
+            // Auto-detect course
+            let courses = courseStore.loadAll()
+            if let detected = courseDetector.detectCourse(courses: courses) {
+                session.courseId = detected.id
+                session.courseName = detected.shortName
+                NSLog("[LiveSessionView] Auto-detected course: \(detected.name)")
+            }
+
             appState.currentSession = session
             appState.sessionStatus = .polishing
 
-            // Navigate to session result (two-tab view)
+            // Navigate to session result
             appState.navigationPath.append(NavigationDestination.sessionResult)
             isEndingSession = false
+
+            // Show course selection sheet if no auto-detection and courses exist
+            if session.courseId == nil && !courses.isEmpty {
+                showCourseSheet = true
+            }
 
             // Two-step generation: polish transcript → generate notes
             Task {
@@ -153,6 +192,20 @@ struct LiveSessionView: View {
                     }
                 } else {
                     NSLog("[LiveSessionView] Transcript polishing disabled — skipping")
+                }
+
+                // Step 1.5: Slide Analysis (if enabled)
+                if NoteVConfig.SlideAnalysis.enabled && !updatedSession.frames.isEmpty {
+                    appState.sessionStatus = .analyzingSlides
+                    do {
+                        let analyzer = SlideAnalyzer()
+                        let result = try await analyzer.analyze(session: updatedSession)
+                        updatedSession.slideAnalysis = result
+                        appState.currentSession = updatedSession
+                        NSLog("[LiveSessionView] Slide analysis: \(result.uniqueSlides.count) unique slides from \(result.totalFramesProcessed) frames")
+                    } catch {
+                        NSLog("[LiveSessionView] Slide analysis failed (non-fatal): \(error.localizedDescription)")
+                    }
                 }
 
                 // Step 2: Generate AI notes (slower, multimodal)
@@ -191,6 +244,15 @@ struct LiveSessionView: View {
                     appState.sessionStatus = .error(error.localizedDescription)
                 }
             }
+        }
+    }
+
+    private func tagSessionWithCourse(_ course: Course) {
+        if var session = appState.currentSession {
+            session.courseId = course.id
+            session.courseName = course.shortName
+            appState.currentSession = session
+            NSLog("[LiveSessionView] Tagged session with course: \(course.name)")
         }
     }
 

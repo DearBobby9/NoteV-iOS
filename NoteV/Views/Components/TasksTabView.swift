@@ -7,9 +7,11 @@ import SwiftUI
 struct TasksTabView: View {
     let todos: [TodoItem]
     let sessionId: UUID?
+    var sessionTitle: String = "NoteV Session"
     var onExportToReminders: (([TodoItem]) -> Void)?
 
     @State private var expandedItemId: UUID?
+    @State private var showExportSheet = false
 
     private var highPriority: [TodoItem] { todos.filter { $0.priority == .high } }
     private var mediumPriority: [TodoItem] { todos.filter { $0.priority == .medium } }
@@ -49,11 +51,11 @@ struct TasksTabView: View {
             Spacer()
 
             Button(action: {
-                onExportToReminders?(todos)
+                showExportSheet = true
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "checklist")
-                    Text("Export All")
+                    Text("Export")
                 }
                 .font(.caption)
                 .fontWeight(.medium)
@@ -62,6 +64,16 @@ struct TasksTabView: View {
                 .padding(.vertical, 6)
                 .background(NoteVConfig.Design.accent.opacity(0.15))
                 .cornerRadius(8)
+            }
+            .sheet(isPresented: $showExportSheet) {
+                ExportPreviewSheet(
+                    todos: todos,
+                    sessionId: sessionId,
+                    sessionTitle: sessionTitle,
+                    onComplete: {
+                        onExportToReminders?(todos)
+                    }
+                )
             }
         }
         .padding(.horizontal, NoteVConfig.Design.padding)

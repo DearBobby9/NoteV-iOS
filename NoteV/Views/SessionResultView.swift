@@ -16,6 +16,7 @@ struct SessionResultView: View {
     @State private var pdfSourceGeneratedAt: Date?
     @State private var rawSegments: [TranscriptSegment] = []
     @State private var exportError: String?
+    @State private var showChat = false
 
     enum ResultTab: String, CaseIterable {
         case timeline = "Timeline"
@@ -52,18 +53,47 @@ struct SessionResultView: View {
                 // Bottom action bar
                 actionBar
             }
+
+            // Floating chat button
+            if appState.sessionStatus == .complete, appState.currentSession != nil {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button(action: { showChat = true }) {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                .font(.title2)
+                                .foregroundColor(.black)
+                                .frame(width: 56, height: 56)
+                                .background(NoteVConfig.Design.accent)
+                                .cornerRadius(28)
+                                .shadow(color: NoteVConfig.Design.accent.opacity(0.4), radius: 8, y: 4)
+                        }
+                        .padding(.trailing, NoteVConfig.Design.padding)
+                        .padding(.bottom, 80)
+                    }
+                }
+            }
         }
         .navigationTitle(appState.currentSession?.metadata.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .navigationBarBackButtonHidden(
-            appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos
+            appState.sessionStatus == .polishing || appState.sessionStatus == .analyzingSlides || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos
         )
         .onAppear {
             if let session = appState.currentSession {
                 rawSegments = session.transcriptSegments
                     .filter { $0.isFinal }
                     .sorted { $0.startTime < $1.startTime }
+            }
+        }
+        .sheet(isPresented: $showChat) {
+            if let session = appState.currentSession {
+                ChatView(
+                    conversationId: session.metadata.sessionId,
+                    sessionContext: session
+                )
             }
         }
         .alert("Export Failed", isPresented: Binding(
@@ -132,6 +162,7 @@ struct SessionResultView: View {
             TasksTabView(
                 todos: appState.extractedTodos,
                 sessionId: appState.currentSession?.id,
+                sessionTitle: appState.currentSession?.metadata.title ?? "NoteV Session",
                 onExportToReminders: { items in
                     exportTodosToReminders(items)
                 }
@@ -182,6 +213,7 @@ struct SessionResultView: View {
     private var todosProgressText: String {
         switch appState.sessionStatus {
         case .polishing: return "Polishing transcript..."
+        case .analyzingSlides: return "Analyzing slides..."
         case .generatingNotes: return "Generating notes..."
         case .extractingTodos: return "Extracting action items..."
         default: return "Processing..."

@@ -36,6 +36,11 @@ final class SessionRecorder: ObservableObject {
     private var collectedSegments: [TranscriptSegment] = []
     private var collectedBookmarks: [Bookmark] = []
 
+    // Smart bookmark detection
+    private let smartDetector = SmartBookmarkDetector()
+    private var textBuffer: String = ""
+    private var autoBookmarkCount = 0
+
     // Background tasks
     private var audioPipelineTask: Task<Void, Never>?
     private var framePipelineTask: Task<Void, Never>?
@@ -70,6 +75,9 @@ final class SessionRecorder: ObservableObject {
         collectedFrames = []
         collectedSegments = []
         collectedBookmarks = []
+        textBuffer = ""
+        autoBookmarkCount = 0
+        smartDetector.reset()
 
         // Create fresh pipeline instances (AsyncStream lazy vars are one-time-use)
         captureManager = CaptureManager()
@@ -280,8 +288,54 @@ final class SessionRecorder: ObservableObject {
 
                 // Update UI on main actor
                 self.appState?.transcriptSegments.append(segment)
+
+                // Smart bookmark detection — only on final segments
+                if NoteVConfig.SmartBookmark.enabled && segment.isFinal {
+                    self.checkSmartBookmark(segment: segment)
+                }
             }
         }
+    }
+
+    // MARK: - Smart Bookmark Detection
+
+    private func checkSmartBookmark(segment: TranscriptSegment) {
+        guard autoBookmarkCount < NoteVConfig.SmartBookmark.maxAutoBookmarksPerSession else { return }
+
+        // Update rolling text buffer (keep last N seconds of text)
+        let bufferWindow = NoteVConfig.SmartBookmark.rollingBufferSeconds
+        let recentSegments = collectedSegments.filter { seg in
+            seg.isFinal && (segment.startTime - seg.startTime) <= bufferWindow
+        }
+        textBuffer = recentSegments.map(\.text).joined(separator: " ")
+
+        let sessionTime = segment.startTime
+        guard let result = smartDetector.detect(
+            text: segment.text,
+            fullBuffer: textBuffer,
+            sessionTime: sessionTime
+        ) else { return }
+
+        // Create auto bookmark
+        let context = (appState?.transcriptSegments.suffix(5).map(\.text).joined(separator: " ")) ?? ""
+        let bookmark = Bookmark(
+            timestamp: sessionTime,
+            surroundingTranscript: context,
+            label: result.label,
+            source: .auto,
+            confidence: result.confidence,
+            triggerPhrase: result.triggerPhrase,
+            detectionTier: result.tier
+        )
+        collectedBookmarks.append(bookmark)
+        autoBookmarkCount += 1
+
+        // Update UI (don't increment bookmarkCount — that's for manual only, avoids double toast)
+        appState?.bookmarkTimestamps.append(sessionTime)
+        appState?.autoBookmarkCount = autoBookmarkCount
+        appState?.latestAutoBookmarkPhrase = result.triggerPhrase
+
+        NSLog("[SessionRecorder] Smart bookmark #\(autoBookmarkCount) at \(String(format: "%.1f", sessionTime))s — tier \(result.tier), confidence \(String(format: "%.2f", result.confidence)), phrase: '\(result.triggerPhrase)'")
     }
 
     private func startFrameCollector() {
@@ -324,7 +378,8 @@ final class SessionRecorder: ObservableObject {
 
         var bookmark = Bookmark(
             timestamp: timestamp,
-            surroundingTranscript: context
+            surroundingTranscript: context,
+            source: .manual
         )
 
         let filename = "bookmark_\(collectedBookmarks.count + 1).jpg"
@@ -337,7 +392,8 @@ final class SessionRecorder: ObservableObject {
                 bookmark = Bookmark(
                     timestamp: timestamp,
                     frameFilename: filename,
-                    surroundingTranscript: context
+                    surroundingTranscript: context,
+                    source: .manual
                 )
 
                 // Only create .bookmark TimestampedFrame when photo was actually saved

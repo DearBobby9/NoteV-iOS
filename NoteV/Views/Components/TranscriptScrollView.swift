@@ -19,24 +19,22 @@ struct TranscriptScrollView: View {
                             .padding(.top, 8)
                     } else {
                         ForEach(appState.transcriptSegments) { segment in
-                            let isBookmarked = appState.bookmarkTimestamps.contains { ts in
-                                ts >= segment.startTime && ts <= segment.endTime + 2.0
-                            }
+                            let bookmarkType = bookmarkTypeForSegment(segment)
 
                             HStack(alignment: .top, spacing: 0) {
-                                // Orange left border for bookmarked segments
-                                if isBookmarked {
+                                // Colored left border for bookmarked segments
+                                if bookmarkType != .none {
                                     Rectangle()
-                                        .fill(NoteVConfig.Design.bookmarkHighlight)
+                                        .fill(bookmarkType == .auto ? NoteVConfig.Design.accent : NoteVConfig.Design.bookmarkHighlight)
                                         .frame(width: 3)
                                         .padding(.trailing, 5)
                                 }
 
                                 // Timestamp or bookmark icon
-                                if isBookmarked {
-                                    Image(systemName: "bookmark.fill")
+                                if bookmarkType != .none {
+                                    Image(systemName: bookmarkType == .auto ? "sparkles" : "bookmark.fill")
                                         .font(.caption)
-                                        .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+                                        .foregroundColor(bookmarkType == .auto ? NoteVConfig.Design.accent : NoteVConfig.Design.bookmarkHighlight)
                                         .frame(width: 50, alignment: .trailing)
                                         .padding(.trailing, 8)
                                 } else {
@@ -55,11 +53,13 @@ struct TranscriptScrollView: View {
                                         : NoteVConfig.Design.textSecondary)
                             }
                             .padding(.vertical, 4)
-                            .padding(.horizontal, isBookmarked ? 4 : 0)
+                            .padding(.horizontal, bookmarkType != .none ? 4 : 0)
                             .background(
-                                isBookmarked
-                                    ? NoteVConfig.Design.bookmarkHighlight.opacity(0.12)
-                                    : Color.clear
+                                bookmarkType == .auto
+                                    ? NoteVConfig.Design.accent.opacity(0.12)
+                                    : bookmarkType == .manual
+                                        ? NoteVConfig.Design.bookmarkHighlight.opacity(0.12)
+                                        : Color.clear
                             )
                             .cornerRadius(6)
                             .id(segment.id)
@@ -78,6 +78,30 @@ struct TranscriptScrollView: View {
                 }
             }
         }
+    }
+
+    private enum SegmentBookmarkType {
+        case none, manual, auto
+    }
+
+    /// Check if a segment overlaps with any bookmark timestamp.
+    /// Returns .auto if the matching bookmark is an auto-bookmark, .manual for manual, .none if no match.
+    private func bookmarkTypeForSegment(_ segment: TranscriptSegment) -> SegmentBookmarkType {
+        // We only have timestamps in appState.bookmarkTimestamps (no source info),
+        // so check auto bookmark count to infer. Recent auto-bookmarks are at the end.
+        let matchingTimestamp = appState.bookmarkTimestamps.first { ts in
+            ts >= segment.startTime && ts <= segment.endTime + 2.0
+        }
+        guard matchingTimestamp != nil else { return .none }
+
+        // If we have autoBookmarkCount > 0 and latestAutoBookmarkPhrase is set,
+        // and this is a recent segment, it might be auto. Use heuristic:
+        // check if segment text contains any part of the trigger phrase.
+        if let phrase = appState.latestAutoBookmarkPhrase,
+           segment.text.lowercased().contains(phrase.lowercased()) {
+            return .auto
+        }
+        return .manual
     }
 
     private func formatTimestamp(_ seconds: TimeInterval) -> String {
