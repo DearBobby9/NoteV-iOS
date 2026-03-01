@@ -61,6 +61,24 @@
 		461899F1CAD58A158E22658D /* TodoParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */; };
 		BC123458018BC9C8655485AF /* ReminderSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */; };
 		46B2A5119A5A83A4781AEA7F /* TasksTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583D250F7D3C3206A68C457D /* TasksTabView.swift */; };
+		BB11CC22DD33EE44FF55AA01 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF01 /* ChatMessage.swift */; };
+		BB11CC22DD33EE44FF55AA02 /* Course.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF02 /* Course.swift */; };
+		BB11CC22DD33EE44FF55AA03 /* SmartBookmarkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF03 /* SmartBookmarkDetector.swift */; };
+		BB11CC22DD33EE44FF55AA04 /* FrameDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */; };
+		BB11CC22DD33EE44FF55AA05 /* SlideAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF05 /* SlideAnalyzer.swift */; };
+		BB11CC22DD33EE44FF55AA06 /* CourseDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF06 /* CourseDetector.swift */; };
+		CC11DD22EE33FF44AA55BB01 /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC01 /* ChatStore.swift */; };
+		CC11DD22EE33FF44AA55BB02 /* DeepgramVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC02 /* DeepgramVoiceService.swift */; };
+		CC11DD22EE33FF44AA55BB03 /* UnifiedChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC03 /* UnifiedChatService.swift */; };
+		BB11CC22DD33EE44FF55AA09 /* CourseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF09 /* CourseStore.swift */; };
+		BB11CC22DD33EE44FF55AA0A /* CourseSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0A /* CourseSetupView.swift */; };
+		BB11CC22DD33EE44FF55AA0B /* ExportPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0B /* ExportPreviewSheet.swift */; };
+		BB11CC22DD33EE44FF55AA0C /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0C /* ChatView.swift */; };
+		DD11EE22FF33AA44BB55CC04 /* ChatHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC05 /* ChatHistoryView.swift */; };
+		BB11CC22DD33EE44FF55AA0D /* ChatVoiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0D /* ChatVoiceInput.swift */; };
+		BB11CC22DD33EE44FF55AA0E /* CourseBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0E /* CourseBadge.swift */; };
+		BB11CC22DD33EE44FF55AA0F /* PostRecordingCourseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF0F /* PostRecordingCourseSheet.swift */; };
+		BB11CC22DD33EE44FF55AA10 /* TodayScheduleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF10 /* TodayScheduleSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,6 +148,24 @@
 		9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoParser.swift; sourceTree = "<group>"; };
 		B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSyncService.swift; sourceTree = "<group>"; };
 		583D250F7D3C3206A68C457D /* TasksTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksTabView.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF01 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF02 /* Course.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Course.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF03 /* SmartBookmarkDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartBookmarkDetector.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameDeduplicator.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF05 /* SlideAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlideAnalyzer.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF06 /* CourseDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDetector.swift; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC01 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC02 /* DeepgramVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepgramVoiceService.swift; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC03 /* UnifiedChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedChatService.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF09 /* CourseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseStore.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0A /* CourseSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseSetupView.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0B /* ExportPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportPreviewSheet.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0C /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC05 /* ChatHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHistoryView.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0D /* ChatVoiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVoiceInput.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0E /* CourseBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseBadge.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF0F /* PostRecordingCourseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRecordingCourseSheet.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55FF10 /* TodayScheduleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayScheduleSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,8 +186,12 @@
 			children = (
 				17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */,
 				3B5319932E7050917D0E212B /* BookmarkDetector.swift */,
+				AA11BB22CC33DD44EE55FF06 /* CourseDetector.swift */,
+				AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */,
 				2ABBF48B47823E60ED467485 /* FramePipeline.swift */,
 				B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */,
+				AA11BB22CC33DD44EE55FF05 /* SlideAnalyzer.swift */,
+				AA11BB22CC33DD44EE55FF03 /* SmartBookmarkDetector.swift */,
 			);
 			path = Processing;
 			sourceTree = "<group>";
@@ -167,6 +207,8 @@
 		1A135C77DD17B2620B44909B /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				DD11EE22FF33AA44BB55CC01 /* ChatStore.swift */,
+				AA11BB22CC33DD44EE55FF09 /* CourseStore.swift */,
 				D60A1FE3F2BB02E37860AA66 /* ImageStore.swift */,
 				7A38C3323D6117ACF2EDD313 /* SessionStore.swift */,
 			);
@@ -185,6 +227,8 @@
 			isa = PBXGroup;
 			children = (
 				8755CFBEDC1823B02FD63328 /* APIKeys.swift */,
+				DD11EE22FF33AA44BB55CC02 /* DeepgramVoiceService.swift */,
+				DD11EE22FF33AA44BB55CC03 /* UnifiedChatService.swift */,
 				8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */,
 				EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */,
 				B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */,
@@ -223,6 +267,7 @@
 			isa = PBXGroup;
 			children = (
 				D3F4620E1ED3CB3F8E52CF5F /* Components */,
+				AA11BB22CC33DD44EE55FF0A /* CourseSetupView.swift */,
 				D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */,
 				369FC04B08DE705AA9774885 /* NotesResultView.swift */,
 				12BEEB312589E4CCC60C834E /* SessionListView.swift */,
@@ -256,8 +301,15 @@
 			isa = PBXGroup;
 			children = (
 				30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */,
+				DD11EE22FF33AA44BB55CC05 /* ChatHistoryView.swift */,
+				AA11BB22CC33DD44EE55FF0C /* ChatView.swift */,
+				AA11BB22CC33DD44EE55FF0D /* ChatVoiceInput.swift */,
+				AA11BB22CC33DD44EE55FF0E /* CourseBadge.swift */,
+				AA11BB22CC33DD44EE55FF0B /* ExportPreviewSheet.swift */,
 				3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */,
 				C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */,
+				AA11BB22CC33DD44EE55FF0F /* PostRecordingCourseSheet.swift */,
+				AA11BB22CC33DD44EE55FF10 /* TodayScheduleSheet.swift */,
 				583D250F7D3C3206A68C457D /* TasksTabView.swift */,
 				432265139B08B1408BC5067C /* TimelineNoteView.swift */,
 				4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */,
@@ -309,6 +361,8 @@
 			children = (
 				D060840D9639412421E65150 /* AudioChunk.swift */,
 				6F085C176BFB0A39B7017680 /* Bookmark.swift */,
+				AA11BB22CC33DD44EE55FF01 /* ChatMessage.swift */,
+				AA11BB22CC33DD44EE55FF02 /* Course.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */,
 				BFAD7E6334C6D2841D53CB3C /* SessionData.swift */,
 				AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */,
@@ -467,6 +521,24 @@
 				461899F1CAD58A158E22658D /* TodoParser.swift in Sources */,
 				BC123458018BC9C8655485AF /* ReminderSyncService.swift in Sources */,
 				46B2A5119A5A83A4781AEA7F /* TasksTabView.swift in Sources */,
+				BB11CC22DD33EE44FF55AA01 /* ChatMessage.swift in Sources */,
+				BB11CC22DD33EE44FF55AA02 /* Course.swift in Sources */,
+				BB11CC22DD33EE44FF55AA03 /* SmartBookmarkDetector.swift in Sources */,
+				BB11CC22DD33EE44FF55AA04 /* FrameDeduplicator.swift in Sources */,
+				BB11CC22DD33EE44FF55AA05 /* SlideAnalyzer.swift in Sources */,
+				BB11CC22DD33EE44FF55AA06 /* CourseDetector.swift in Sources */,
+				CC11DD22EE33FF44AA55BB01 /* ChatStore.swift in Sources */,
+				CC11DD22EE33FF44AA55BB02 /* DeepgramVoiceService.swift in Sources */,
+				CC11DD22EE33FF44AA55BB03 /* UnifiedChatService.swift in Sources */,
+				BB11CC22DD33EE44FF55AA09 /* CourseStore.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0A /* CourseSetupView.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0B /* ExportPreviewSheet.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0C /* ChatView.swift in Sources */,
+				DD11EE22FF33AA44BB55CC04 /* ChatHistoryView.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0D /* ChatVoiceInput.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0E /* CourseBadge.swift in Sources */,
+				BB11CC22DD33EE44FF55AA0F /* PostRecordingCourseSheet.swift in Sources */,
+				BB11CC22DD33EE44FF55AA10 /* TodayScheduleSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

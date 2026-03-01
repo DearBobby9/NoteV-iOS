@@ -11,6 +11,12 @@ struct StartSessionView: View {
     @StateObject private var captureManager = CaptureManager()
     @State private var showSettings = false
     @State private var selectedSource: CaptureSource = .phone
+    @State private var detectedCourse: Course?
+    @State private var showCourseSetup = false
+    @State private var showChat = false
+    @State private var showSchedule = false
+    private let courseDetector = CourseDetector()
+    private let courseStore = CourseStore()
 
     var body: some View {
         ZStack {
@@ -74,18 +80,44 @@ struct StartSessionView: View {
                 .padding(.horizontal, NoteVConfig.Design.padding)
                 .disabled(appState.sessionStatus == .starting || appState.sessionStatus == .recording)
 
-                // Not-configured hint
-                if !SettingsManager.shared.isConfigured {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.yellow)
-                        Text("API key not configured — tap")
-                        Image(systemName: "gearshape")
-                        Text("to set up")
+                // Detected course badge
+                if let course = detectedCourse {
+                    HStack(spacing: 8) {
+                        CourseBadge(name: course.shortName, colorHex: course.color)
+                        Text(course.name)
+                            .font(.subheadline)
+                            .foregroundColor(NoteVConfig.Design.textPrimary)
                     }
-                    .font(.caption)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
                 }
+
+                // Chat with NoteV card
+                Button(action: { showChat = true }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.title2)
+                            .foregroundColor(NoteVConfig.Design.accent)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Chat with NoteV")
+                                .font(.callout.weight(.semibold))
+                                .foregroundColor(NoteVConfig.Design.textPrimary)
+                            Text("Set up courses, configure settings, ask questions...")
+                                .font(.caption)
+                                .foregroundColor(NoteVConfig.Design.textSecondary)
+                                .lineLimit(2)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(NoteVConfig.Design.textSecondary)
+                    }
+                    .padding(14)
+                    .background(NoteVConfig.Design.surface)
+                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                }
+                .padding(.horizontal, NoteVConfig.Design.padding)
 
                 // Recent Sessions Button
                 if !appState.pastSessions.isEmpty {
@@ -108,6 +140,14 @@ struct StartSessionView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showSchedule = true
+                } label: {
+                    Image(systemName: "calendar")
+                        .foregroundColor(NoteVConfig.Design.textSecondary)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showSettings = true
@@ -117,11 +157,24 @@ struct StartSessionView: View {
                 }
             }
         }
+        .sheet(isPresented: $showSchedule) {
+            TodayScheduleSheet()
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .navigationDestination(isPresented: $showCourseSetup) {
+            CourseSetupView()
+        }
+        .sheet(isPresented: $showChat) {
+            ChatView(
+                conversationId: ChatStore.shared.getOrCreateConversation().id,
+                sessionContext: nil
+            )
+        }
         .onAppear {
             loadPastSessions()
+            detectCurrentCourse()
         }
         .onChange(of: captureManager.connectedDevices) { oldDevices, newDevices in
             // Auto-select glasses when they first connect
@@ -210,6 +263,14 @@ struct StartSessionView: View {
 
         NSLog("[StartSessionView] All permissions granted")
         return true
+    }
+
+    private func detectCurrentCourse() {
+        let courses = courseStore.loadAll()
+        detectedCourse = courseDetector.detectCourse(courses: courses)
+        if let course = detectedCourse {
+            NSLog("[StartSessionView] Auto-detected course: \(course.name)")
+        }
     }
 
     private func loadPastSessions() {

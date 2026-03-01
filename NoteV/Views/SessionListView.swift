@@ -37,9 +37,15 @@ struct SessionListView: View {
                     }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(session.metadata.title)
-                                    .font(.headline)
-                                    .foregroundColor(NoteVConfig.Design.textPrimary)
+                                HStack(spacing: 6) {
+                                    Text(session.metadata.title)
+                                        .font(.headline)
+                                        .foregroundColor(NoteVConfig.Design.textPrimary)
+
+                                    if let courseName = session.courseName {
+                                        CourseBadge(name: courseName, colorHex: "#00E5FF")
+                                    }
+                                }
 
                                 HStack(spacing: 8) {
                                     Text(session.metadata.startDate, style: .date)
