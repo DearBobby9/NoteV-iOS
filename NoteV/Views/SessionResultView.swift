@@ -7,10 +7,14 @@ import SwiftUI
 struct SessionResultView: View {
     @EnvironmentObject var appState: AppState
 
+    /// True when navigated from SessionListView (past session browsing)
+    var isBrowsingPastSession: Bool = false
+
     @State private var selectedTab: ResultTab = .timeline
     @State private var pdfURL: URL?
     @State private var pdfSourceSessionId: UUID?
     @State private var pdfSourceGeneratedAt: Date?
+    @State private var rawSegments: [TranscriptSegment] = []
 
     enum ResultTab: String, CaseIterable {
         case timeline = "Timeline"
@@ -51,6 +55,13 @@ struct SessionResultView: View {
         .navigationBarBackButtonHidden(
             appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes
         )
+        .onAppear {
+            if let session = appState.currentSession {
+                rawSegments = session.transcriptSegments
+                    .filter { $0.isFinal }
+                    .sorted { $0.startTime < $1.startTime }
+            }
+        }
     }
 
     // MARK: - Timeline Tab (Layer 1)
@@ -67,8 +78,7 @@ struct SessionResultView: View {
         } else if case .error = appState.sessionStatus {
             // Polishing failed — show raw transcript as fallback
             rawTranscriptFallback(showErrorBanner: true)
-        } else if let session = appState.currentSession,
-                  !session.transcriptSegments.filter({ $0.isFinal }).isEmpty {
+        } else if !rawSegments.isEmpty {
             // No polished transcript (old session) — show raw transcript
             rawTranscriptFallback(showErrorBanner: false)
         } else {
@@ -200,8 +210,8 @@ struct SessionResultView: View {
                     .padding(.horizontal, NoteVConfig.Design.padding)
                     .padding(.top, 8)
 
-                if let session = appState.currentSession {
-                    ForEach(session.transcriptSegments.filter { $0.isFinal }.sorted(by: { $0.startTime < $1.startTime })) { segment in
+                if !rawSegments.isEmpty {
+                    ForEach(rawSegments) { segment in
                         HStack(alignment: .top, spacing: 8) {
                             Text(formatTimestamp(segment.startTime))
                                 .font(.caption2)
@@ -338,8 +348,16 @@ struct SessionResultView: View {
 
             // Done
             Button(action: {
-                appState.navigationPath = NavigationPath()
-                appState.reset()
+                if isBrowsingPastSession {
+                    // Pop back to session list
+                    if !appState.navigationPath.isEmpty {
+                        appState.navigationPath.removeLast()
+                    }
+                } else {
+                    // Fresh recording — go home
+                    appState.navigationPath = NavigationPath()
+                    appState.reset()
+                }
             }) {
                 HStack {
                     Image(systemName: "checkmark.circle")

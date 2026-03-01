@@ -32,6 +32,8 @@ struct NoteVApp: App {
                             NotesResultView()
                         case .sessionResult:
                             SessionResultView()
+                        case .pastSessionResult:
+                            SessionResultView(isBrowsingPastSession: true)
                         case .sessionList:
                             SessionListView()
                         }

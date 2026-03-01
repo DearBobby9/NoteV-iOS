@@ -31,8 +31,8 @@ struct SessionListView: View {
                     Button(action: {
                         appState.currentSession = session
                         appState.generatedNotes = session.notes
-                        appState.sessionStatus = session.notes != nil ? .complete : .idle
-                        appState.navigationPath.append(NavigationDestination.sessionResult)
+                        appState.sessionStatus = .complete
+                        appState.navigationPath.append(NavigationDestination.pastSessionResult)
                     }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {

@@ -33,6 +33,7 @@ enum NavigationDestination: Hashable {
     case liveSession
     case notesResult
     case sessionResult
+    case pastSessionResult
     case sessionList
 }
 
