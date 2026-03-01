@@ -15,10 +15,12 @@ struct SessionResultView: View {
     @State private var pdfSourceSessionId: UUID?
     @State private var pdfSourceGeneratedAt: Date?
     @State private var rawSegments: [TranscriptSegment] = []
+    @State private var exportError: String?
 
     enum ResultTab: String, CaseIterable {
         case timeline = "Timeline"
         case aiNotes = "AI Notes"
+        case tasks = "Tasks"
     }
 
     var body: some View {
@@ -43,6 +45,8 @@ struct SessionResultView: View {
                     timelineContent
                 case .aiNotes:
                     aiNotesContent
+                case .tasks:
+                    tasksContent
                 }
 
                 // Bottom action bar
@@ -53,7 +57,7 @@ struct SessionResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .navigationBarBackButtonHidden(
-            appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes
+            appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos
         )
         .onAppear {
             if let session = appState.currentSession {
@@ -61,6 +65,14 @@ struct SessionResultView: View {
                     .filter { $0.isFinal }
                     .sorted { $0.startTime < $1.startTime }
             }
+        }
+        .alert("Export Failed", isPresented: Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )) {
+            Button("OK") { exportError = nil }
+        } message: {
+            Text(exportError ?? "Unknown error")
         }
     }
 
@@ -107,6 +119,72 @@ struct SessionResultView: View {
                 title: "No notes generated yet",
                 detail: nil
             )
+        }
+    }
+
+    // MARK: - Tasks Tab (Layer 3)
+
+    @ViewBuilder
+    private var tasksContent: some View {
+        if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos {
+            todosExtractingView
+        } else if !appState.extractedTodos.isEmpty {
+            TasksTabView(
+                todos: appState.extractedTodos,
+                sessionId: appState.currentSession?.id,
+                onExportToReminders: { items in
+                    exportTodosToReminders(items)
+                }
+            )
+        } else {
+            placeholderView(
+                icon: "checklist",
+                title: "No tasks extracted",
+                detail: "Action items from lectures will appear here"
+            )
+        }
+    }
+
+    // MARK: - TODOs Extracting Progress
+
+    private var todosExtractingView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
+                .scaleEffect(1.5)
+
+            Text(todosProgressText)
+                .font(.title3)
+                .fontWeight(.medium)
+                .foregroundColor(NoteVConfig.Design.textPrimary)
+
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(NoteVConfig.Design.accent)
+                        .frame(width: 8, height: 8)
+                        .opacity(0.3)
+                        .animation(
+                            .easeInOut(duration: 0.6)
+                                .repeatForever()
+                                .delay(Double(index) * 0.2),
+                            value: appState.sessionStatus
+                        )
+                }
+            }
+
+            Spacer()
+        }
+    }
+
+    private var todosProgressText: String {
+        switch appState.sessionStatus {
+        case .polishing: return "Polishing transcript..."
+        case .generatingNotes: return "Generating notes..."
+        case .extractingTodos: return "Extracting action items..."
+        default: return "Processing..."
         }
     }
 
@@ -419,6 +497,22 @@ struct SessionResultView: View {
 
                 updated.metadata.title = notes.title
                 updated.notes = notes
+
+                // Extract TODOs (non-fatal)
+                if NoteVConfig.TodoExtraction.enabled {
+                    appState.sessionStatus = .extractingTodos
+                    do {
+                        let extractor = TodoExtractor()
+                        let todos = try await extractor.extract(from: updated)
+                        appState.extractedTodos = todos
+                        updated.todos = todos
+                        NSLog("[SessionResultView] Retry extracted \(todos.count) TODOs")
+                    } catch {
+                        NSLog("[SessionResultView] TODO extraction failed (non-fatal): \(error.localizedDescription)")
+                        updated.todos = []
+                    }
+                }
+
                 appState.currentSession = updated
                 try SessionStore().save(session: updated)
 
@@ -446,6 +540,48 @@ struct SessionResultView: View {
         } catch {
             NSLog("[SessionResultView] ERROR writing PDF: \(error.localizedDescription)")
             invalidatePDFCache()
+        }
+    }
+
+    // MARK: - Reminders Export
+
+    private func exportTodosToReminders(_ items: [TodoItem]) {
+        Task { @MainActor in
+            do {
+                let service = ReminderSyncService.shared
+                let granted = try await service.requestAccess()
+                guard granted else {
+                    NSLog("[SessionResultView] Reminders access denied")
+                    exportError = "Reminders access denied. Enable in Settings > Privacy > Reminders."
+                    return
+                }
+
+                let sessionTitle = appState.currentSession?.metadata.title ?? "NoteV Session"
+                let sessionId = appState.currentSession?.id
+                let synced = try await service.exportToReminders(items, sessionTitle: sessionTitle, sessionId: sessionId)
+
+                // Update synced state
+                var updatedTodos = appState.extractedTodos
+                for syncedItem in synced {
+                    if let index = updatedTodos.firstIndex(where: { $0.id == syncedItem.id }) {
+                        updatedTodos[index].isSynced = syncedItem.isSynced
+                        updatedTodos[index].eventKitIdentifier = syncedItem.eventKitIdentifier
+                    }
+                }
+                appState.extractedTodos = updatedTodos
+
+                // Persist synced state
+                if var session = appState.currentSession {
+                    session.todos = updatedTodos
+                    appState.currentSession = session
+                    try SessionStore().save(session: session)
+                }
+
+                NSLog("[SessionResultView] Exported \(synced.count) items to Reminders")
+            } catch {
+                NSLog("[SessionResultView] Reminders export failed: \(error.localizedDescription)")
+                exportError = error.localizedDescription
+            }
         }
     }
 

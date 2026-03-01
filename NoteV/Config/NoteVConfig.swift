@@ -91,6 +91,17 @@ enum NoteVConfig {
         static let maxImagesInTimeline: Int = 50
     }
 
+    // MARK: - TODO Extraction
+
+    enum TodoExtraction {
+        /// Whether to run LLM-based TODO extraction after note generation
+        static let enabled: Bool = true
+        /// Maximum action items to extract per session
+        static let maxTodosPerSession: Int = 30
+        /// Minimum confidence score (1-5) to include in results
+        static let minConfidence: Int = 2
+    }
+
     // MARK: - Storage
 
     enum Storage {

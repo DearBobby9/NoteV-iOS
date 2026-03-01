@@ -75,6 +75,8 @@
 	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>NoteV exports class action items to your Reminders for easy tracking.</string>
 
 	<!-- External Accessory Protocols (required for Meta glasses discovery) -->
 	<key>UISupportedExternalAccessoryProtocols</key>

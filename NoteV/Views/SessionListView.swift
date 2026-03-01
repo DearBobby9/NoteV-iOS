@@ -31,6 +31,7 @@ struct SessionListView: View {
                     Button(action: {
                         appState.currentSession = session
                         appState.generatedNotes = session.notes
+                        appState.extractedTodos = session.todos ?? []
                         appState.sessionStatus = .complete
                         appState.navigationPath.append(NavigationDestination.pastSessionResult)
                     }) {

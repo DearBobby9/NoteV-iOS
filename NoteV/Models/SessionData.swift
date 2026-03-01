@@ -48,6 +48,7 @@ struct SessionData: Identifiable, Codable, Sendable {
     var bookmarks: [Bookmark]
     var polishedTranscript: PolishedTranscript?
     var notes: StructuredNotes?
+    var todos: [TodoItem]?
 
     init(
         metadata: SessionMetadata = SessionMetadata(),
@@ -55,7 +56,8 @@ struct SessionData: Identifiable, Codable, Sendable {
         transcriptSegments: [TranscriptSegment] = [],
         bookmarks: [Bookmark] = [],
         polishedTranscript: PolishedTranscript? = nil,
-        notes: StructuredNotes? = nil
+        notes: StructuredNotes? = nil,
+        todos: [TodoItem]? = nil
     ) {
         self.metadata = metadata
         self.frames = frames
@@ -63,6 +65,7 @@ struct SessionData: Identifiable, Codable, Sendable {
         self.bookmarks = bookmarks
         self.polishedTranscript = polishedTranscript
         self.notes = notes
+        self.todos = todos
     }
 
     /// Full transcript as a single string

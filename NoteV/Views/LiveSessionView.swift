@@ -166,6 +166,22 @@ struct LiveSessionView: View {
                     updatedSession.notes = notes
                     appState.currentSession = updatedSession
 
+                    // Step 3: Extract TODOs (text-only, fast, non-fatal)
+                    if NoteVConfig.TodoExtraction.enabled {
+                        appState.sessionStatus = .extractingTodos
+                        do {
+                            let extractor = TodoExtractor()
+                            let todos = try await extractor.extract(from: updatedSession)
+                            appState.extractedTodos = todos
+                            updatedSession.todos = todos
+                            NSLog("[LiveSessionView] Extracted \(todos.count) TODOs")
+                        } catch {
+                            NSLog("[LiveSessionView] TODO extraction failed (non-fatal): \(error.localizedDescription)")
+                            updatedSession.todos = []
+                        }
+                    }
+
+                    appState.currentSession = updatedSession
                     try SessionStore().save(session: updatedSession)
 
                     appState.sessionStatus = .complete

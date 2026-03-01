@@ -55,6 +55,12 @@
 		D4E5F6A7B8C9D0E1F2A3B4C6 /* PolishedTranscriptParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */; };
 		E5F6A7B8C9D0E1F2A3B4C5D7 /* SessionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6A7B8C9D0E1F2A3B4C5D6 /* SessionResultView.swift */; };
 		F6A7B8C9D0E1F2A3B4C5D6E8 /* TranscriptTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A7B8C9D0E1F2A3B4C5D6E7 /* TranscriptTimelineView.swift */; };
+		D13AC63B8CBB59C19C39B73F /* TodoItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1696B9A024763FBB57036026 /* TodoItem.swift */; };
+		4A051554253A1723289096C6 /* TodoExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 644E2AC195CE7863123134FB /* TodoExtractor.swift */; };
+		EF2C79A7C45EF94C990A88B1 /* TodoExtractionPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA985C033FF1B493D35EDD10 /* TodoExtractionPromptBuilder.swift */; };
+		461899F1CAD58A158E22658D /* TodoParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */; };
+		BC123458018BC9C8655485AF /* ReminderSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */; };
+		46B2A5119A5A83A4781AEA7F /* TasksTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583D250F7D3C3206A68C457D /* TasksTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +124,12 @@
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolishedTranscriptParser.swift; sourceTree = "<group>"; };
 		E5F6A7B8C9D0E1F2A3B4C5D6 /* SessionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionResultView.swift; sourceTree = "<group>"; };
 		F6A7B8C9D0E1F2A3B4C5D6E7 /* TranscriptTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimelineView.swift; sourceTree = "<group>"; };
+		1696B9A024763FBB57036026 /* TodoItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoItem.swift; sourceTree = "<group>"; };
+		644E2AC195CE7863123134FB /* TodoExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoExtractor.swift; sourceTree = "<group>"; };
+		BA985C033FF1B493D35EDD10 /* TodoExtractionPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoExtractionPromptBuilder.swift; sourceTree = "<group>"; };
+		9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoParser.swift; sourceTree = "<group>"; };
+		B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSyncService.swift; sourceTree = "<group>"; };
+		583D250F7D3C3206A68C457D /* TasksTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -175,6 +187,7 @@
 				8755CFBEDC1823B02FD63328 /* APIKeys.swift */,
 				8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */,
 				EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */,
+				B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -245,6 +258,7 @@
 				30F16F43AC746F0E8C052C40 /* BookmarkIndicator.swift */,
 				3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */,
 				C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */,
+				583D250F7D3C3206A68C457D /* TasksTabView.swift */,
 				432265139B08B1408BC5067C /* TimelineNoteView.swift */,
 				4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */,
 				B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */,
@@ -261,6 +275,9 @@
 				13A4EDF51480E12DCB2F413F /* PDFGenerator.swift */,
 				D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */,
 				26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */,
+				BA985C033FF1B493D35EDD10 /* TodoExtractionPromptBuilder.swift */,
+				644E2AC195CE7863123134FB /* TodoExtractor.swift */,
+				9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* TranscriptPolisher.swift */,
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* TranscriptPolishingPromptBuilder.swift */,
 			);
@@ -296,6 +313,7 @@
 				BFAD7E6334C6D2841D53CB3C /* SessionData.swift */,
 				AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */,
 				CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */,
+				1696B9A024763FBB57036026 /* TodoItem.swift */,
 				C725368C366A110A6E92096B /* TranscriptSegment.swift */,
 			);
 			path = Models;
@@ -443,6 +461,12 @@
 				C3D4E5F6A7B8C9D0E1F2A3B5 /* TranscriptPolishingPromptBuilder.swift in Sources */,
 				29E6CB3D87A8607521571F5E /* TranscriptSegment.swift in Sources */,
 				F6A7B8C9D0E1F2A3B4C5D6E8 /* TranscriptTimelineView.swift in Sources */,
+				D13AC63B8CBB59C19C39B73F /* TodoItem.swift in Sources */,
+				4A051554253A1723289096C6 /* TodoExtractor.swift in Sources */,
+				EF2C79A7C45EF94C990A88B1 /* TodoExtractionPromptBuilder.swift in Sources */,
+				461899F1CAD58A158E22658D /* TodoParser.swift in Sources */,
+				BC123458018BC9C8655485AF /* ReminderSyncService.swift in Sources */,
+				46B2A5119A5A83A4781AEA7F /* TasksTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

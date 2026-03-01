@@ -11,6 +11,7 @@ enum SessionStatus: Equatable {
     case stopping
     case polishing          // Transcript polishing in progress
     case generatingNotes
+    case extractingTodos    // TODO extraction in progress
     case complete
     case error(String)
 }
@@ -67,6 +68,7 @@ final class AppState: ObservableObject {
     @Published var elapsedTime: TimeInterval = 0
     @Published var latestFrameData: Data?
     @Published var bookmarkTimestamps: [TimeInterval] = []
+    @Published var extractedTodos: [TodoItem] = []
 
     // MARK: - Past Sessions
 
@@ -104,6 +106,7 @@ final class AppState: ObservableObject {
         elapsedTime = 0
         latestFrameData = nil
         bookmarkTimestamps = []
+        extractedTodos = []
         NSLog("[AppState] State reset to idle")
     }
 }

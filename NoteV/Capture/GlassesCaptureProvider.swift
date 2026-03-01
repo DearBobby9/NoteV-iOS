@@ -181,6 +181,11 @@ final class GlassesCaptureProvider: CaptureProvider {
     func startCapture() async throws {
         NSLog("[GlassesCaptureProvider] startCapture() called")
 
+        // Force lazy stream init so continuations are set before configureAudioEngine()
+        // captures them. Without this, audioContinuation is nil when installTap runs.
+        _ = self.audioStream
+        _ = self.frameStream
+
         // Check/request camera permission via DAT SDK
         do {
             let status = try await wearables.checkPermissionStatus(.camera)
@@ -276,12 +281,14 @@ final class GlassesCaptureProvider: CaptureProvider {
             interleaved: true
         ) else {
             NSLog("[GlassesCaptureProvider] ERROR: Could not create target audio format")
-            return
+            throw NSError(domain: "GlassesCaptureProvider", code: -5,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create target audio format"])
         }
 
         guard let converter = AVAudioConverter(from: hardwareFormat, to: targetFormat) else {
-            NSLog("[GlassesCaptureProvider] ERROR: Could not create audio converter")
-            return
+            NSLog("[GlassesCaptureProvider] ERROR: Could not create audio converter (\(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz)")
+            throw NSError(domain: "GlassesCaptureProvider", code: -6,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
         }
 
         // Capture continuation reference for use in audio tap closure (runs off MainActor)
