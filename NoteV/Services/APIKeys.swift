@@ -2,7 +2,8 @@ import Foundation
 
 // MARK: - APIKeys
 
-/// Placeholder API keys. Replace with real keys before running.
+/// API keys for external services.
+/// LLM keys (OpenAI/Anthropic/Gemini) are configured via in-app Settings → UserDefaults.
 /// In production, use Keychain or environment variables.
 enum APIKeys {
 
