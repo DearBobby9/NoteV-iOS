@@ -22,9 +22,9 @@ enum NoteVConfig {
 
     enum Audio {
         /// Which STT provider to use
-        static let sttProvider: STTProvider = .appleSpeech
+        static let sttProvider: STTProvider = .deepgram
         /// Deepgram model identifier
-        static let deepgramModel: String = "nova-2"
+        static let deepgramModel: String = "nova-3"
         /// Audio sample rate in Hz
         static let sampleRate: Int = 16_000
         /// Audio bit depth
@@ -74,11 +74,28 @@ enum NoteVConfig {
         case custom    // any OpenAI-compatible endpoint
     }
 
+    // MARK: - Transcript Polishing
+
+    enum TranscriptPolishing {
+        /// Whether to run LLM transcript polishing after recording
+        static let enabled: Bool = true
+        /// Duration of each chunk sent to LLM (seconds of transcript)
+        static let chunkDurationSeconds: TimeInterval = 300
+        /// Maximum segments per LLM chunk
+        static let maxSegmentsPerChunk: Int = 50
+        /// Number of segments overlapping between chunks for context continuity
+        static let overlapSegments: Int = 1
+        /// Minimum change score for a frame to appear in the timeline
+        static let imageChangeScoreThreshold: Double = 0.10
+        /// Maximum images shown in the transcript timeline
+        static let maxImagesInTimeline: Int = 50
+    }
+
     // MARK: - Storage
 
     enum Storage {
         /// JPEG compression quality for stored frames (0.0–1.0)
-        static let jpegCompressionQuality: CGFloat = 0.8
+        static let jpegCompressionQuality: CGFloat = 0.92
         /// Directory name for session data
         static let sessionsDirectory: String = "NoteVSessions"
     }

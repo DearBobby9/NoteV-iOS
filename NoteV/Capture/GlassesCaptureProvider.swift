@@ -69,8 +69,8 @@ final class GlassesCaptureProvider: CaptureProvider {
 
         let config = StreamSessionConfig(
             videoCodec: VideoCodec.raw,
-            resolution: StreamingResolution.medium,
-            frameRate: 24
+            resolution: StreamingResolution.high,
+            frameRate: 2
         )
         self.streamSession = StreamSession(
             streamSessionConfig: config,
