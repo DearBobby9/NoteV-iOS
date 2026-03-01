@@ -9,6 +9,7 @@ enum SessionStatus: Equatable {
     case starting
     case recording
     case stopping
+    case polishing          // Transcript polishing in progress
     case generatingNotes
     case complete
     case error(String)
@@ -31,6 +32,7 @@ enum CaptureSourceStatus: Equatable {
 enum NavigationDestination: Hashable {
     case liveSession
     case notesResult
+    case sessionResult
     case sessionList
 }
 

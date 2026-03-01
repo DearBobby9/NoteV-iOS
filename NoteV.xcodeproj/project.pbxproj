@@ -49,6 +49,12 @@
 		DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A38C3323D6117ACF2EDD313 /* SessionStore.swift */; };
 		E49FA5D981B96B3955A638A0 /* AudioChunk.swift in Sources */ = {isa = PBXBuildFile; fileRef = D060840D9639412421E65150 /* AudioChunk.swift */; };
 		FC43D9E7B99DF01CDB77B71E /* AudioPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F3 /* PolishedTranscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */; };
+		B2C3D4E5F6A7B8C9D0E1F2A4 /* TranscriptPolisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* TranscriptPolisher.swift */; };
+		C3D4E5F6A7B8C9D0E1F2A3B5 /* TranscriptPolishingPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* TranscriptPolishingPromptBuilder.swift */; };
+		D4E5F6A7B8C9D0E1F2A3B4C6 /* PolishedTranscriptParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */; };
+		E5F6A7B8C9D0E1F2A3B4C5D7 /* SessionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6A7B8C9D0E1F2A3B4C5D6 /* SessionResultView.swift */; };
+		F6A7B8C9D0E1F2A3B4C5D6E8 /* TranscriptTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A7B8C9D0E1F2A3B4C5D6E7 /* TranscriptTimelineView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +112,12 @@
 		E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteVTests.swift; sourceTree = "<group>"; };
 		EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
 		EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartSessionView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolishedTranscript.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* TranscriptPolishingPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolishingPromptBuilder.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolishedTranscriptParser.swift; sourceTree = "<group>"; };
+		E5F6A7B8C9D0E1F2A3B4C5D6 /* SessionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionResultView.swift; sourceTree = "<group>"; };
+		F6A7B8C9D0E1F2A3B4C5D6E7 /* TranscriptTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimelineView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -201,6 +213,7 @@
 				D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */,
 				369FC04B08DE705AA9774885 /* NotesResultView.swift */,
 				12BEEB312589E4CCC60C834E /* SessionListView.swift */,
+				E5F6A7B8C9D0E1F2A3B4C5D6 /* SessionResultView.swift */,
 				8EA12D6BFFADBCCFA2C0BC41 /* SettingsView.swift */,
 				EE89DA97FE45F2CC7436A1FC /* StartSessionView.swift */,
 			);
@@ -235,6 +248,7 @@
 				432265139B08B1408BC5067C /* TimelineNoteView.swift */,
 				4B08BEE4F6BED1BCD37026A0 /* TimelineTOCSheet.swift */,
 				B1A3D491685B4A009E900920 /* TranscriptScrollView.swift */,
+				F6A7B8C9D0E1F2A3B4C5D6E7 /* TranscriptTimelineView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -245,7 +259,10 @@
 				48E10FCB6AA2570ACB355F09 /* NoteGenerator.swift */,
 				8F5AD5190EAB735441675978 /* NoteParser.swift */,
 				13A4EDF51480E12DCB2F413F /* PDFGenerator.swift */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* PolishedTranscriptParser.swift */,
 				26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* TranscriptPolisher.swift */,
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* TranscriptPolishingPromptBuilder.swift */,
 			);
 			path = NoteGeneration;
 			sourceTree = "<group>";
@@ -275,6 +292,7 @@
 			children = (
 				D060840D9639412421E65150 /* AudioChunk.swift */,
 				6F085C176BFB0A39B7017680 /* Bookmark.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */,
 				BFAD7E6334C6D2841D53CB3C /* SessionData.swift */,
 				AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */,
 				CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */,
@@ -407,9 +425,12 @@
 				22D39271B4619B58D040D370 /* NotesResultView.swift in Sources */,
 				4315BCC338877CDCEB40FEE8 /* PDFGenerator.swift in Sources */,
 				89762E0EB9F0C95A6FF2DB74 /* PhoneCaptureProvider.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* PolishedTranscript.swift in Sources */,
+				D4E5F6A7B8C9D0E1F2A3B4C6 /* PolishedTranscriptParser.swift in Sources */,
 				A6356672B6E892B616ED3DDA /* PromptBuilder.swift in Sources */,
 				8E86616CDE14C80BC25F7043 /* SessionData.swift in Sources */,
 				BF638DF40D63791BCBF8E07B /* SessionListView.swift in Sources */,
+				E5F6A7B8C9D0E1F2A3B4C5D7 /* SessionResultView.swift in Sources */,
 				9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */,
 				DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */,
 				D8E2D1E55B9A1BA8C707EABF /* SettingsManager.swift in Sources */,
@@ -418,7 +439,10 @@
 				4DB73242C8CD03FCD3B13F4E /* StructuredNotes.swift in Sources */,
 				46F02D5711FB7A248955B619 /* TimestampedFrame.swift in Sources */,
 				DC1D85E76C415E925C552014 /* TranscriptScrollView.swift in Sources */,
+				B2C3D4E5F6A7B8C9D0E1F2A4 /* TranscriptPolisher.swift in Sources */,
+				C3D4E5F6A7B8C9D0E1F2A3B5 /* TranscriptPolishingPromptBuilder.swift in Sources */,
 				29E6CB3D87A8607521571F5E /* TranscriptSegment.swift in Sources */,
+				F6A7B8C9D0E1F2A3B4C5D6E8 /* TranscriptTimelineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

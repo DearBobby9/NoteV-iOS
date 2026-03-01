@@ -128,27 +128,45 @@ struct LiveSessionView: View {
         Task {
             let session = await sessionRecorder.stopRecording()
             appState.currentSession = session
-            appState.sessionStatus = .generatingNotes
+            appState.sessionStatus = .polishing
 
-            // Navigate to notes result
-            appState.navigationPath.append(NavigationDestination.notesResult)
+            // Navigate to session result (two-tab view)
+            appState.navigationPath.append(NavigationDestination.sessionResult)
             isEndingSession = false
 
-            // Generate notes in background
+            // Two-step generation: polish transcript → generate notes
             Task {
+                var updatedSession = session
+
+                // Step 1: Polish transcript (fast, text-only)
+                if NoteVConfig.TranscriptPolishing.enabled {
+                    do {
+                        let polisher = TranscriptPolisher()
+                        let polished = try await polisher.polish(session: session)
+
+                        updatedSession.polishedTranscript = polished
+                        appState.currentSession = updatedSession
+                        NSLog("[LiveSessionView] Transcript polished: \(polished.segments.count) segments")
+                    } catch {
+                        NSLog("[LiveSessionView] Polishing failed: \(error.localizedDescription) — timeline will show raw transcript")
+                        // Continue to note generation even if polishing fails
+                    }
+                } else {
+                    NSLog("[LiveSessionView] Transcript polishing disabled — skipping")
+                }
+
+                // Step 2: Generate AI notes (slower, multimodal)
+                appState.sessionStatus = .generatingNotes
                 do {
                     let generator = NoteGenerator()
-                    let notes = try await generator.generateNotes(from: session)
+                    let notes = try await generator.generateNotes(from: updatedSession)
                     appState.generatedNotes = notes
 
-                    // Update session with notes + backfill title, then save
-                    var updatedSession = session
                     updatedSession.metadata.title = notes.title
                     updatedSession.notes = notes
                     appState.currentSession = updatedSession
 
-                    let store = SessionStore()
-                    try store.save(session: updatedSession)
+                    try SessionStore().save(session: updatedSession)
 
                     appState.sessionStatus = .complete
                     NSLog("[LiveSessionView] Notes generated successfully")

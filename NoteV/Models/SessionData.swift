@@ -46,6 +46,7 @@ struct SessionData: Identifiable, Codable, Sendable {
     var frames: [TimestampedFrame]
     var transcriptSegments: [TranscriptSegment]
     var bookmarks: [Bookmark]
+    var polishedTranscript: PolishedTranscript?
     var notes: StructuredNotes?
 
     init(
@@ -53,12 +54,14 @@ struct SessionData: Identifiable, Codable, Sendable {
         frames: [TimestampedFrame] = [],
         transcriptSegments: [TranscriptSegment] = [],
         bookmarks: [Bookmark] = [],
+        polishedTranscript: PolishedTranscript? = nil,
         notes: StructuredNotes? = nil
     ) {
         self.metadata = metadata
         self.frames = frames
         self.transcriptSegments = transcriptSegments
         self.bookmarks = bookmarks
+        self.polishedTranscript = polishedTranscript
         self.notes = notes
     }
 

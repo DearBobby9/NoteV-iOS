@@ -30,6 +30,8 @@ struct NoteVApp: App {
                             LiveSessionView()
                         case .notesResult:
                             NotesResultView()
+                        case .sessionResult:
+                            SessionResultView()
                         case .sessionList:
                             SessionListView()
                         }

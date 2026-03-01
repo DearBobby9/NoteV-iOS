@@ -32,7 +32,7 @@ struct SessionListView: View {
                         appState.currentSession = session
                         appState.generatedNotes = session.notes
                         appState.sessionStatus = session.notes != nil ? .complete : .idle
-                        appState.navigationPath.append(NavigationDestination.notesResult)
+                        appState.navigationPath.append(NavigationDestination.sessionResult)
                     }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
