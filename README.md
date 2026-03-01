@@ -2,65 +2,66 @@
 
 **AI classroom assistant for Meta Ray-Ban smart glasses.**
 
-Every AI note-taker can hear. Ours can see.
+> Every AI note-taker can hear. Ours can see.
 
-NoteV captures audio + visual content during lectures via Meta Ray-Ban Gen-2 smart glasses (or iPhone camera fallback), then generates structured multimodal notes using LLM.
+NoteV captures audio + visual content during lectures via Meta Ray-Ban Gen-2 smart glasses (or iPhone camera fallback), then generates structured multimodal notes with AI-powered transcript polishing, slide analysis, and action item extraction.
 
 ## Architecture
 
 ```
-Capture Layer     → CaptureProvider protocol (Glasses or Phone)
-                     ↓ timestamped frames + audio
-Processing Layer  → AudioPipeline (Apple Speech on-device STT)
-                  → FramePipeline (periodic sampling + change detection)
-                  → BookmarkDetector (manual button)
-                  → SessionRecorder (orchestrator)
-                     ↓
-Generation Layer  → PromptBuilder → LLM API → NoteParser
-                     ↓ StructuredNotes
-Presentation      → SwiftUI views (Start → Live → Notes)
+Capture Layer       → CaptureProvider protocol (Glasses or Phone)
+                       ↓ timestamped frames + audio
+Processing Layer    → AudioPipeline (Deepgram / Apple Speech STT)
+                    → FramePipeline (sampling + change detection)
+                    → SmartBookmarkDetector (auto-detect key moments)
+                    → SessionRecorder (orchestrator → SessionData)
+                       ↓
+Generation Layer    → TranscriptPolisher (chunked LLM → PolishedTranscript)
+                    → SlideAnalyzer (LLM vision → slide content extraction)
+                    → NoteGenerator (multimodal LLM → StructuredNotes)
+                    → TodoExtractor (text-only LLM → [TodoItem])
+                       ↓
+Presentation        → SessionResultView (3 tabs: Timeline + AI Notes + Tasks)
+                    → UnifiedChatService (AI chat for Q&A, course setup, settings)
+                    → WeeklyScheduleSheet (iOS Calendar-style course view)
 ```
 
 ## Tech Stack
 
-- **Platform**: iOS 17+ / Swift / SwiftUI
-- **Hardware**: Meta Ray-Ban Gen-2 (DAT SDK) with iPhone camera fallback
-- **STT**: Apple Speech (on-device)
-- **LLM**: Gemini / OpenAI / Anthropic (configurable in-app)
+- **Platform**: iOS 17+ / Swift 6 / SwiftUI / Xcode 15+
+- **Hardware**: Meta Ray-Ban Gen-2 (DAT SDK v0.4.0) with iPhone camera fallback
+- **STT**: Deepgram nova-3 (primary) / Apple Speech (fallback)
+- **LLM**: OpenAI GPT-4o / Anthropic Claude / Google Gemini (configurable)
 - **Storage**: FileManager + JSON + JPEG (no CoreData)
 
-## Current Status
+## Features
 
-### Done
+### Recording & Processing
+- **Dual capture**: Meta Ray-Ban glasses via DAT SDK or iPhone back camera
+- **Real-time STT**: Deepgram WebSocket streaming with KeepAlive and graceful shutdown
+- **Smart bookmarks**: Auto-detect "this will be on the exam", "important", etc. via 4-tier keyword taxonomy
+- **Frame intelligence**: 5s sampling + pixel-difference change detection + pHash slide deduplication
 
-- **End-to-end pipeline** working on real device (iPhone fallback mode)
-- **PhoneCaptureProvider**: AVCaptureSession (back camera) + AVAudioEngine (16kHz mono PCM)
-- **AudioPipeline**: Apple Speech on-device STT with auto-restart (~1min recognition limit)
-- **FramePipeline**: 5s periodic sampling + 64x64 grayscale pixel-difference change detection
-- **Manual bookmarks**: haptic feedback, high-res photo capture, orange UI markers in transcript + notes
-- **LLMService**: OpenAI / Gemini / Anthropic / custom OpenAI-compatible endpoint support
-- **In-app Settings**: provider picker, model selection, API key entry — persisted in UserDefaults
-- **Note generation**: multimodal prompt with up to 20 frames + full transcript → structured notes with inline images
-- **Session persistence**: JSON + JPEG, session list, load/save/delete
-- **Dark design system**: consistent color tokens, bookmark orange (#FF6B35) treatment
-- **Transcript deduplication**: interim→final overlap removal + restart-boundary dedup
+### Three-Layer Output
+- **Layer 1 — Polished Timeline**: AI-cleaned transcript with inline images and bookmark highlights
+- **Layer 2 — AI Notes**: Structured notes organized by slide transitions with timestamps
+- **Layer 3 — Action Items**: Extracted TODOs with categories, priorities, due dates → iOS Reminders export
 
-### In Progress / Next
+### AI Chat System
+- **Unified chat**: Q&A about notes, course setup, settings config, reminders — all via natural language
+- **Voice input**: Deepgram-powered with 5s utterance timeout
+- **Action cards**: Confirmable UI cards for add courses, change settings, create reminders
+- **Session context**: Chat can access transcript, notes, slides, and todos for the current session
 
-- **GlassesCaptureProvider**: DAT SDK integration (currently stubbed)
-- **DeepgramService**: cloud STT for longer sessions (scaffolded, not implemented)
-- **Demo polish**: retry UI for LLM failures, session title backfill from generated notes, PDF export
-- **Permission pre-ask flow**: camera/mic/speech authorization UX
+### Course Management
+- **Conversational setup**: Tell AI your schedule naturally ("I have CS229 MWF 10am")
+- **Auto-detection**: Automatically detects current course when recording starts
+- **Weekly calendar**: iOS Calendar-style grid with course blocks, red NOW line, today highlight
+- **Duplicate prevention**: Won't re-add courses with same name and schedule
 
 ## Build & Run
 
-Requires Xcode 15+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-
 ```bash
-# Generate Xcode project
-cd NoteV
-xcodegen generate
-
 # Open in Xcode
 open NoteV.xcodeproj
 
@@ -68,21 +69,25 @@ open NoteV.xcodeproj
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcodebuild -project NoteV.xcodeproj -scheme NoteV \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
-
-# Run tests
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project NoteV.xcodeproj -scheme NoteV \
-  test -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
 ## Configuration
 
-On first launch, tap the gear icon on the home screen to configure:
-1. Select LLM provider (Gemini / OpenAI / Anthropic / Custom)
-2. Enter your API key
-3. Optionally change the model
+1. **LLM**: Tap gear icon → select provider (Gemini / OpenAI / Anthropic) → enter API key
+2. **Deepgram**: API key configured in `APIKeys.swift` for voice STT
+3. **Courses**: Chat with NoteV → tell it your schedule → confirm action card
 
-Settings persist across app restarts via UserDefaults.
+Or configure everything through the AI chat: "Set my API key to sk-..."
+
+## Design System
+
+| Token | Value |
+|-------|-------|
+| Background | `#0D1117` |
+| Surface | `#161B22` |
+| Accent | `#00E5FF` |
+| Bookmark | `#FF6B35` |
+| Font | SF Pro (system) |
 
 ## License
 
