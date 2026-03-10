@@ -91,4 +91,4 @@ Or configure everything through the AI chat: "Set my API key to sk-..."
 
 ## License
 
-Proprietary. All rights reserved.
+MIT License. See [LICENSE](LICENSE) for details.
