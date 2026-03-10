@@ -29,7 +29,11 @@ fastlane/test_output
 iOSInjectionProject/
 
 # Keys (never commit real keys)
-# APIKeys.swift is committed with placeholders — real keys go in Keychain
+# Real keys go in Secrets.xcconfig (gitignored) — see Secrets.xcconfig.example
+Secrets.xcconfig
+
+# Claude Code project notes
+CLAUDE.md
 
 # Playgrounds
 timeline.xctimeline

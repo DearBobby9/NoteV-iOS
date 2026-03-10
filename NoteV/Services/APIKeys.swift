@@ -9,7 +9,9 @@ enum APIKeys {
 
     // MARK: - Deepgram (Streaming STT)
 
-    static let deepgramAPIKey = "YOUR_DEEPGRAM_API_KEY"
+    static let deepgramAPIKey: String = {
+        Bundle.main.infoDictionary?["DEEPGRAM_API_KEY"] as? String ?? "YOUR_DEEPGRAM_API_KEY"
+    }()
 
     static var isDeepgramConfigured: Bool {
         deepgramAPIKey != "YOUR_DEEPGRAM_API_KEY" && !deepgramAPIKey.isEmpty

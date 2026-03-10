@@ -108,6 +108,8 @@
 		48E10FCB6AA2570ACB355F09 /* NoteGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteGenerator.swift; sourceTree = "<group>"; };
 		4DBC2F6F94FECC10A5FF9CC9 /* NoteV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NoteV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C12E69A24CFABD6D9995599 /* NoteV.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NoteV.entitlements; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718A1B2C3D4 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718A1B2C3D5 /* Secrets.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig.example; sourceTree = "<group>"; };
 		6F085C176BFB0A39B7017680 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
 		757EAB6DF748CCE482C9B65B /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		7A38C3323D6117ACF2EDD313 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
@@ -281,6 +283,8 @@
 		CBBA82505ED923F59B09B348 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F60718A1B2C3D4 /* Config.xcconfig */,
+				A1B2C3D4E5F60718A1B2C3D5 /* Secrets.xcconfig.example */,
 				8A4F215A20E712B3C9653B3E /* Info.plist */,
 				5C12E69A24CFABD6D9995599 /* NoteV.entitlements */,
 				9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */,
@@ -563,6 +567,7 @@
 /* Begin XCBuildConfiguration section */
 		055DF33B505744CB5311092D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B2C3D4E5F60718A1B2C3D4 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -645,6 +650,7 @@
 		};
 		38DC3BD082B10547878EBFEE /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B2C3D4E5F60718A1B2C3D4 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

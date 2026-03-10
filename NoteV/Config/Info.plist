@@ -38,15 +38,19 @@
 		<string>armv7</string>
 	</array>
 
+	<!-- API Keys (injected via Config.xcconfig / Secrets.xcconfig) -->
+	<key>DEEPGRAM_API_KEY</key>
+	<string>$(DEEPGRAM_API_KEY)</string>
+
 	<!-- Meta DAT SDK Configuration -->
 	<key>MWDAT</key>
 	<dict>
 		<key>AppLinkURLScheme</key>
 		<string>notev://</string>
 		<key>MetaAppID</key>
-		<string>YOUR_META_APP_ID</string>
+		<string>$(META_APP_ID)</string>
 		<key>ClientToken</key>
-		<string>YOUR_META_CLIENT_TOKEN</string>
+		<string>$(META_CLIENT_TOKEN)</string>
 		<key>TeamID</key>
 		<string>$(DEVELOPMENT_TEAM)</string>
 	</dict>
