@@ -17,42 +17,55 @@
   <a href="#get-started-in-5-minutes">Quick Start</a> •
   <a href="#features">Features</a> •
   <a href="#architecture">Architecture</a> •
-  <a href="#tech-stack">Tech Stack</a>
+  <a href="#roadmap">Roadmap</a>
 </p>
 
 ---
 
-> **No glasses? No problem.** NoteV works with your iPhone camera as a fallback — same full pipeline, no extra hardware needed. Point your phone at the whiteboard and go.
+<p align="center">
+  <strong>🎒 No smart glasses? No problem.</strong><br>
+  NoteV works with just your iPhone camera — same full pipeline, no extra hardware needed.<br>
+  Point your phone at the whiteboard and go.
+</p>
+
+---
 
 <!--
-TODO: Add demo video here once recorded
-[![Demo Video](https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=youtube)](YOUR_YOUTUBE_LINK)
+TODO: Replace with demo video once recorded
+[![Demo Video](https://img.shields.io/badge/▶_Watch-Demo_Video-red?style=for-the-badge&logo=youtube)](YOUR_YOUTUBE_LINK)
 -->
+
+<p align="center">
+  <img src="screenshots/home-glasses-connected.png" alt="Home — Glasses Connected" width="230">
+  &nbsp;&nbsp;
+  <img src="screenshots/timeline-transcript.png" alt="Timeline — Polished Transcript" width="230">
+  &nbsp;&nbsp;
+  <img src="screenshots/ai-chat-course-setup.png" alt="AI Chat — Course Setup" width="230">
+</p>
+<p align="center">
+  <em>Home screen with Ray-Ban connected &nbsp;·&nbsp; Polished transcript timeline &nbsp;·&nbsp; AI chat with course setup</em>
+</p>
 
 ## Get Started in 5 Minutes
 
 **What you need:**
 - Xcode 15+ on macOS
 - A free [Deepgram API key](https://console.deepgram.com/) (for speech-to-text)
-- Any one LLM API key: [Gemini](https://aistudio.google.com/apikey) (free tier available) / [OpenAI](https://platform.openai.com/api-keys) / [Anthropic](https://console.anthropic.com/)
-- iPhone or iOS Simulator (Meta Ray-Ban glasses are optional)
+- Any one LLM API key: [Gemini](https://aistudio.google.com/apikey) (free tier) / [OpenAI](https://platform.openai.com/api-keys) / [Anthropic](https://console.anthropic.com/)
+- An iPhone or iOS Simulator — **Meta Ray-Ban glasses are 100% optional**
 
 ```bash
-# Clone
-git clone https://github.com/DearBobby9/NoteV-iOS.git
-cd NoteV-iOS
+git clone https://github.com/DearBobby9/NoteV_Glasses.git
+cd NoteV_Glasses
 
-# Set up API keys
+# Set up API keys (gitignored — your keys stay local)
 cp NoteV/Config/Secrets.xcconfig.example NoteV/Config/Secrets.xcconfig
 # Edit Secrets.xcconfig — paste your Deepgram key
 
-# Open & run
 open NoteV.xcodeproj
-# In Xcode: select your device/simulator → Cmd+R
+# Select your device/simulator → Cmd+R
 # On first launch: tap ⚙️ → select LLM provider → enter API key
 ```
-
-`Secrets.xcconfig` is gitignored — your keys stay local.
 
 ## Features
 
@@ -157,6 +170,16 @@ NoteV/
 ├── Views/            # SwiftUI screens + reusable components
 └── Config/           # NoteVConfig (all tunable params), xcconfig files
 ```
+
+## Roadmap
+
+- [ ] **Visual Q&A** — Tap any image in the timeline → ask the AI about that specific slide with surrounding transcript context
+- [ ] **Smart Review Reminders** — Auto-generate review summaries before exams from cross-session notes, spaced repetition nudges
+- [ ] **Cross-Session Course Intelligence** — Link sessions to courses, build knowledge graph across weeks
+- [ ] **Multi-Language STT** — Support non-English lectures via Deepgram language params
+- [ ] **Android Companion** — Extend beyond iOS for broader smart glasses adoption
+
+Have an idea or want to contribute? [Open an issue](https://github.com/DearBobby9/NoteV_Glasses/issues) — feature requests and PRs are welcome.
 
 ## Known Limitations
 
