@@ -34,6 +34,8 @@ final class GlassesCaptureProvider: CaptureProvider {
     // Session state
     private var sessionStartTime: Date?
     private var isStreaming = false
+    private var streamFailedDuringStartup = false
+    private var isAwaitingFirstStream = false
 
     // Photo capture async continuation
     private var photoContinuation: CheckedContinuation<Data, Error>?
@@ -96,9 +98,13 @@ final class GlassesCaptureProvider: CaptureProvider {
                 switch state {
                 case .streaming:
                     self.isStreaming = true
+                    self.streamFailedDuringStartup = false
                     NSLog("[GlassesCaptureProvider] StreamSession state: streaming")
                 case .stopped:
                     self.isStreaming = false
+                    if self.isAwaitingFirstStream {
+                        self.streamFailedDuringStartup = true
+                    }
                     NSLog("[GlassesCaptureProvider] StreamSession state: stopped")
                 case .waitingForDevice:
                     NSLog("[GlassesCaptureProvider] StreamSession state: waitingForDevice")
@@ -123,6 +129,7 @@ final class GlassesCaptureProvider: CaptureProvider {
                     if case .deviceNotConnected = error { return }
                     if case .deviceNotFound = error { return }
                 }
+                self.streamFailedDuringStartup = true
                 NSLog("[GlassesCaptureProvider] StreamSession error: \(error)")
             }
         }
@@ -171,9 +178,22 @@ final class GlassesCaptureProvider: CaptureProvider {
         }
 
         sessionStartTime = Date()
+        streamFailedDuringStartup = false
+        isStreaming = false
+        isAwaitingFirstStream = true
 
         await streamSession.start()
         NSLog("[GlassesCaptureProvider] StreamSession started")
+
+        do {
+            try await waitForVideoStreaming(timeoutSeconds: 15)
+        } catch {
+            isAwaitingFirstStream = false
+            await streamSession.stop()
+            sessionStartTime = nil
+            throw error
+        }
+        isAwaitingFirstStream = false
 
         do {
             try configureAudioEngine()
@@ -190,6 +210,7 @@ final class GlassesCaptureProvider: CaptureProvider {
 
     func stopCapture() async {
         NSLog("[GlassesCaptureProvider] stopCapture() called")
+        isAwaitingFirstStream = false
 
         await streamSession.stop()
 
@@ -289,5 +310,27 @@ final class GlassesCaptureProvider: CaptureProvider {
         }
 
         NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz")
+    }
+
+    private func waitForVideoStreaming(timeoutSeconds: TimeInterval) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            if isStreaming { return }
+            if streamFailedDuringStartup {
+                throw NSError(
+                    domain: "GlassesCaptureProvider",
+                    code: -9,
+                    userInfo: [NSLocalizedDescriptionKey:
+                        "Glasses video stream failed. Put the glasses on, confirm they are connected in Meta AI, and try again."]
+                )
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        throw NSError(
+            domain: "GlassesCaptureProvider",
+            code: -10,
+            userInfo: [NSLocalizedDescriptionKey:
+                "Glasses video stream timed out. Ensure glasses are worn, awake, and connected via Meta AI."]
+        )
     }
 }

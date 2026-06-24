@@ -78,9 +78,7 @@ actor DeepgramService {
 
     /// Whether server Metadata has confirmed the connection
     private var hasReceivedMetadata = false
-
-    /// Signals when server Metadata confirms the WebSocket is ready for audio.
-    private var metadataReadyContinuation: CheckedContinuation<Void, Never>?
+    private var connectionLostBeforeReady = false
 
     /// Eagerly initialized transcript stream (thread-safe, no lazy var hazard)
     nonisolated let transcriptStream: AsyncStream<TranscriptSegment>
@@ -129,6 +127,7 @@ actor DeepgramService {
 
         lastAudioSendTime = Date()
         hasReceivedMetadata = false
+        connectionLostBeforeReady = false
 
         NSLog("[DeepgramService] WebSocket connection initiated — model: \(NoteVConfig.Audio.deepgramModel)")
 
@@ -137,6 +136,9 @@ actor DeepgramService {
 
         // Do not send audio until Metadata confirms the connection is ready (critical on LTE).
         try await waitForMetadataReady(timeoutNanoseconds: 10_000_000_000)
+        guard hasReceivedMetadata else {
+            throw DeepgramError.connectionFailed("Deepgram Metadata was not received")
+        }
         isConnected = true
         NSLog("[DeepgramService] Connection ready — Metadata received")
     }
@@ -206,9 +208,6 @@ actor DeepgramService {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
 
-        metadataReadyContinuation?.resume()
-        metadataReadyContinuation = nil
-
         transcriptContinuation.finish()
 
         // Signal anyone waiting for disconnect
@@ -270,8 +269,6 @@ actor DeepgramService {
             case "Metadata":
                 NSLog("[DeepgramService] Metadata received — connection confirmed")
                 hasReceivedMetadata = true
-                metadataReadyContinuation?.resume()
-                metadataReadyContinuation = nil
             case "UtteranceEnd":
                 NSLog("[DeepgramService] UtteranceEnd received")
             case "SpeechStarted":
@@ -357,7 +354,12 @@ actor DeepgramService {
     }
 
     private func handleConnectionLost() {
-        guard isConnected || metadataReadyContinuation != nil else { return }
+        if !hasReceivedMetadata {
+            connectionLostBeforeReady = true
+            return
+        }
+
+        guard isConnected else { return }
         NSLog("[DeepgramService] Connection lost")
         isConnected = false
 
@@ -366,37 +368,28 @@ actor DeepgramService {
 
         disconnectContinuation?.resume()
         disconnectContinuation = nil
-
-        metadataReadyContinuation?.resume()
-        metadataReadyContinuation = nil
     }
 
     private func waitForMetadataReady(timeoutNanoseconds: UInt64) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { [weak self] in
-                try await self?.waitForMetadataSignal()
-            }
-            group.addTask {
-                try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                throw DeepgramError.connectionFailed("Timed out waiting for Deepgram Metadata")
-            }
-            try await group.next()
-            group.cancelAll()
-        }
-    }
+        if hasReceivedMetadata { return }
 
-    private func waitForMetadataSignal() async throws {
-        guard !hasReceivedMetadata else { return }
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            if hasReceivedMetadata {
-                continuation.resume()
-            } else {
-                metadataReadyContinuation = continuation
+        let pollInterval: UInt64 = 50_000_000
+        var elapsed: UInt64 = 0
+
+        while elapsed < timeoutNanoseconds {
+            if hasReceivedMetadata { return }
+            if connectionLostBeforeReady {
+                throw DeepgramError.connectionFailed("Connection lost before Deepgram Metadata")
             }
+            if webSocketTask == nil {
+                throw DeepgramError.connectionFailed("WebSocket closed before Deepgram Metadata")
+            }
+            try await Task.sleep(nanoseconds: pollInterval)
+            elapsed += pollInterval
         }
-        guard hasReceivedMetadata else {
-            throw DeepgramError.connectionFailed("Connection lost before Deepgram Metadata")
-        }
+
+        if hasReceivedMetadata { return }
+        throw DeepgramError.connectionFailed("Timed out waiting for Deepgram Metadata")
     }
 
     private func waitForDisconnectSignal() async {

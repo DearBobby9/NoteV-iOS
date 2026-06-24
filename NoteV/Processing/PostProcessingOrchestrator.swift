@@ -94,7 +94,18 @@ final class PostProcessingOrchestrator {
             switch stage {
             case .finalizing:
                 if updatedSession.transcriptSegments.isEmpty && updatedSession.frames.isEmpty {
-                    warnings.append("Session has no transcript or frames")
+                    let message = "Recording failed — no video frames or transcript were captured"
+                    warnings.append(message)
+                    appState.processingWarnings = warnings
+                    appState.sessionStatus = .error(message)
+                    NSLog("[PostProcessingOrchestrator] Empty session — skipping LLM pipeline")
+                    return PostProcessingResult(
+                        session: updatedSession,
+                        notes: nil,
+                        todos: [],
+                        warnings: warnings,
+                        failedStage: .finalizing
+                    )
                 } else if updatedSession.transcriptSegments.isEmpty {
                     warnings.append("Live transcription unavailable — notes were generated from video frames only")
                 }

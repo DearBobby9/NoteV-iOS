@@ -137,15 +137,11 @@ final class AudioPipeline {
     // MARK: - Deepgram Processing
 
     private func startDeepgramProcessing(audioStream: AsyncStream<AudioChunk>) async {
-        let service = DeepgramService()
-        self.deepgramService = service
+        guard await connectDeepgramWithRetry(maxAttempts: 3) else { return }
+        guard let service = deepgramService else { return }
 
-        // nonisolated property — safe to access without await
-        let dgTranscriptStream = service.transcriptStream
-
-        // Bridge: forward Deepgram segments to AudioPipeline's transcriptStream
         deepgramBridgeTask = Task { [weak self] in
-            for await segment in dgTranscriptStream {
+            for await segment in service.transcriptStream {
                 guard let self = self else { break }
                 self.segmentIndex += 1
                 self.transcriptContinuation.yield(segment)
@@ -153,24 +149,35 @@ final class AudioPipeline {
             NSLog("[AudioPipeline] Deepgram transcript bridge ended")
         }
 
-        do {
-            try await service.connect()
-            NSLog("[AudioPipeline] Deepgram connected — streaming audio")
-        } catch {
-            NSLog("[AudioPipeline] ERROR: Deepgram connect failed: \(error.localizedDescription)")
-            deepgramBridgeTask?.cancel()
-            deepgramBridgeTask = nil
-            return
-        }
-
-        // Feed audio chunks to Deepgram — blocks until stream finishes
-        // sendAudio is async (actor-isolated) which provides natural backpressure
         for await chunk in audioStream {
             guard isProcessing else { break }
             await service.sendAudio(chunk)
         }
 
         NSLog("[AudioPipeline] Audio feed completed — all chunks sent to Deepgram")
+    }
+
+    private func connectDeepgramWithRetry(maxAttempts: Int) async -> Bool {
+        for attempt in 1...maxAttempts {
+            let service = DeepgramService()
+            deepgramService = service
+
+            do {
+                try await service.connect()
+                NSLog("[AudioPipeline] Deepgram connected — streaming audio (attempt \(attempt))")
+                return true
+            } catch {
+                NSLog("[AudioPipeline] ERROR: Deepgram connect failed (attempt \(attempt)): \(error.localizedDescription)")
+                await service.disconnect()
+                deepgramService = nil
+                if attempt < maxAttempts {
+                    try? await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+                }
+            }
+        }
+        deepgramBridgeTask?.cancel()
+        deepgramBridgeTask = nil
+        return false
     }
 
     // MARK: - Apple Speech Processing
