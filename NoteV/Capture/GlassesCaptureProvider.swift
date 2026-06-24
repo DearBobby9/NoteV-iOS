@@ -7,8 +7,8 @@ import UIKit
 // MARK: - GlassesCaptureProvider
 
 /// Captures frames and audio from Meta Ray-Ban smart glasses via the DAT SDK.
-/// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames.
-/// Audio: Glasses mic routes through Bluetooth HFP → AVAudioEngine tap → 16kHz mono PCM → AudioChunk.
+/// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames (video-only).
+/// Audio: Glasses mic via Bluetooth HFP → AVAudioEngine tap → 16 kHz STT + 48 kHz MP4 mux.
 /// Note: Glasses audio timestamps use wall-clock (`Date`); video frames use PTS. Small drift is accepted in v1.
 ///
 /// @MainActor because StreamSession and its publishers are MainActor-isolated.
@@ -259,7 +259,7 @@ final class GlassesCaptureProvider: CaptureProvider {
 
         NSLog("[GlassesCaptureProvider] Audio hardware format: \(Int(hardwareFormat.sampleRate))Hz, \(hardwareFormat.channelCount)ch")
 
-        guard let targetFormat = AVAudioFormat(
+        guard let sttFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: Double(NoteVConfig.Audio.sampleRate),
             channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
@@ -269,7 +269,18 @@ final class GlassesCaptureProvider: CaptureProvider {
                           userInfo: [NSLocalizedDescriptionKey: "Could not create target audio format"])
         }
 
-        guard let converter = AVAudioConverter(from: hardwareFormat, to: targetFormat) else {
+        guard let muxFormat = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: Double(NoteVConfig.Audio.muxSampleRate),
+            channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
+            interleaved: true
+        ) else {
+            throw NSError(domain: "GlassesCaptureProvider", code: -5,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create mux audio format"])
+        }
+
+        guard let sttConverter = AVAudioConverter(from: hardwareFormat, to: sttFormat),
+              let muxConverter = AVAudioConverter(from: hardwareFormat, to: muxFormat) else {
             throw NSError(domain: "GlassesCaptureProvider", code: -6,
                           userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
         }
@@ -277,39 +288,60 @@ final class GlassesCaptureProvider: CaptureProvider {
         let audioCont = self.audioContinuation
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: hardwareFormat) { [weak self] buffer, _ in
-            let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * targetFormat.sampleRate / hardwareFormat.sampleRate)
-            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else { return }
-
-            var error: NSError?
-            let status = converter.convert(to: convertedBuffer, error: &error) { inNumPackets, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-
-            guard status != .error, error == nil else {
-                NSLog("[GlassesCaptureProvider] Audio conversion error: \(error?.localizedDescription ?? "unknown")")
-                return
-            }
-
-            guard let channelData = convertedBuffer.int16ChannelData else { return }
-            let byteCount = Int(convertedBuffer.frameLength) * 2
-            let data = Data(bytes: channelData[0], count: byteCount)
-
-            // v1: wall-clock timestamps for glasses audio (video uses PTS via VisualSampleProcessor).
             let timestamp: TimeInterval
             if let start = self?.sessionStartTime {
                 timestamp = Date().timeIntervalSince(start)
             } else {
                 timestamp = 0
             }
-            let duration = Double(convertedBuffer.frameLength) / targetFormat.sampleRate
 
-            self?.videoIngressProcessor?.processAudioPCM(data: data, sessionRelativeTime: timestamp)
+            // 16 kHz for Deepgram STT
+            if let sttData = Self.convertBuffer(buffer, to: sttFormat, using: sttConverter) {
+                let duration = Double(sttData.count / 2) / sttFormat.sampleRate
+                audioCont?.yield(AudioChunk(timestamp: timestamp, data: sttData, duration: duration))
+            }
 
-            audioCont?.yield(AudioChunk(timestamp: timestamp, data: data, duration: duration))
+            // 48 kHz for MP4 mux (must match VideoRecorder AAC track)
+            if let muxData = Self.convertBuffer(buffer, to: muxFormat, using: muxConverter) {
+                self?.videoIngressProcessor?.processAudioPCM(
+                    data: muxData,
+                    sessionRelativeTime: timestamp,
+                    sampleRate: muxFormat.sampleRate
+                )
+            }
         }
 
-        NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz")
+        NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → STT \(NoteVConfig.Audio.sampleRate)Hz, MP4 \(NoteVConfig.Audio.muxSampleRate)Hz")
+    }
+
+    private static func convertBuffer(
+        _ buffer: AVAudioPCMBuffer,
+        to targetFormat: AVAudioFormat,
+        using converter: AVAudioConverter
+    ) -> Data? {
+        let frameCount = AVAudioFrameCount(
+            Double(buffer.frameLength) * targetFormat.sampleRate / buffer.format.sampleRate
+        )
+        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else {
+            return nil
+        }
+
+        var error: NSError?
+        let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return buffer
+        }
+
+        guard status != .error, error == nil,
+              let channelData = convertedBuffer.int16ChannelData else {
+            if let error {
+                NSLog("[GlassesCaptureProvider] Audio conversion error: \(error.localizedDescription)")
+            }
+            return nil
+        }
+
+        let byteCount = Int(convertedBuffer.frameLength) * MemoryLayout<Int16>.size
+        return Data(bytes: channelData[0], count: byteCount)
     }
 
     private func waitForVideoStreaming(timeoutSeconds: TimeInterval) async throws {

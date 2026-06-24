@@ -30,8 +30,10 @@ enum NoteVConfig {
         static let deepgramMetadataTimeoutSeconds: TimeInterval = 30
         /// Max audio chunks buffered while Deepgram connects in parallel (~30s of speech)
         static let deepgramConnectBufferMaxChunks: Int = 600
-        /// Audio sample rate in Hz
+        /// Audio sample rate in Hz (Deepgram STT)
         static let sampleRate: Int = 16_000
+        /// Sample rate for MP4 audio mux (must match VideoRecorder AAC track)
+        static let muxSampleRate: Int = 48_000
         /// Audio bit depth
         static let bitDepth: Int = 16
         /// Number of audio channels

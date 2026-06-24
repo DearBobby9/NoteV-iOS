@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 // MARK: - SessionTranscriptExtractor
@@ -10,6 +11,8 @@ final class SessionTranscriptExtractor {
         case notConfigured
         case invalidURL
         case emptyResponse
+        case noAudioTrack
+        case audioExportFailed(String)
         case httpError(Int, String)
 
         var errorDescription: String? {
@@ -17,6 +20,8 @@ final class SessionTranscriptExtractor {
             case .notConfigured: return "Deepgram API key not configured"
             case .invalidURL: return "Invalid Deepgram transcription URL"
             case .emptyResponse: return "Deepgram returned no transcript segments"
+            case .noAudioTrack: return "Session video has no audio track"
+            case .audioExportFailed(let msg): return "Could not extract audio from session video: \(msg)"
             case .httpError(let code, let body): return "Deepgram HTTP \(code): \(body.prefix(200))"
             }
         }
@@ -50,13 +55,13 @@ final class SessionTranscriptExtractor {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Token \(APIKeys.deepgramAPIKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("video/mp4", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 300
 
-        let fileData = try Data(contentsOf: videoURL)
-        NSLog("[SessionTranscriptExtractor] Uploading \(fileData.count) bytes from \(videoURL.lastPathComponent)")
+        let (uploadData, contentType) = try await prepareUploadPayload(from: videoURL)
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        NSLog("[SessionTranscriptExtractor] Uploading \(uploadData.count) bytes (\(contentType)) from \(videoURL.lastPathComponent)")
 
-        let (data, response) = try await session.upload(for: request, from: fileData)
+        let (data, response) = try await session.upload(for: request, from: uploadData)
 
         guard let http = response as? HTTPURLResponse else {
             throw ExtractionError.emptyResponse
@@ -74,6 +79,54 @@ final class SessionTranscriptExtractor {
 
         NSLog("[SessionTranscriptExtractor] Extracted \(segments.count) segments from MP4")
         return segments
+    }
+
+    // MARK: - Audio export
+
+    /// Prefer a small audio-only export for Deepgram; fall back to full MP4 if export fails.
+    private func prepareUploadPayload(from videoURL: URL) async throws -> (Data, String) {
+        do {
+            let audioURL = try await exportAudio(from: videoURL)
+            defer { try? FileManager.default.removeItem(at: audioURL) }
+            let data = try Data(contentsOf: audioURL)
+            NSLog("[SessionTranscriptExtractor] Extracted \(data.count) bytes of audio from MP4")
+            return (data, "audio/mp4")
+        } catch {
+            NSLog("[SessionTranscriptExtractor] Audio export failed — uploading full MP4: \(error.localizedDescription)")
+            let data = try Data(contentsOf: videoURL)
+            return (data, "video/mp4")
+        }
+    }
+
+    private func exportAudio(from videoURL: URL) async throws -> URL {
+        let asset = AVURLAsset(url: videoURL)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        guard !audioTracks.isEmpty else {
+            throw ExtractionError.noAudioTrack
+        }
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw ExtractionError.audioExportFailed("Could not create export session")
+        }
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notev-audio-\(UUID().uuidString).m4a")
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .m4a
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            exportSession.exportAsynchronously {
+                continuation.resume()
+            }
+        }
+
+        guard exportSession.status == .completed else {
+            try? FileManager.default.removeItem(at: outputURL)
+            let message = exportSession.error?.localizedDescription ?? "export status \(exportSession.status.rawValue)"
+            throw ExtractionError.audioExportFailed(message)
+        }
+
+        return outputURL
     }
 
     // MARK: - Response parsing

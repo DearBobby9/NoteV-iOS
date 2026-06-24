@@ -118,6 +118,8 @@ final class VideoRecorder: @unchecked Sendable {
 
                 if self.audioSamplesAppended == 0 {
                     NSLog("[VideoRecorder] WARNING: Audio track configured but no audio samples were muxed")
+                } else {
+                    NSLog("[VideoRecorder] Muxed \(self.audioSamplesAppended) audio samples")
                 }
 
                 writer.finishWriting {

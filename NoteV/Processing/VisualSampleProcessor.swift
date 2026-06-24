@@ -89,13 +89,13 @@ final class VisualSampleProcessor: @unchecked Sendable {
     }
 
     /// Muxes glasses mic PCM into the session MP4 with PTS aligned to the video stream.
-    func processAudioPCM(data: Data, sessionRelativeTime: TimeInterval) {
+    func processAudioPCM(data: Data, sessionRelativeTime: TimeInterval, sampleRate: Double = Double(NoteVConfig.Audio.muxSampleRate)) {
         queue.async { [weak self] in
             guard let self else { return }
             let presentationTime = self.makeAudioPresentationTime(sessionRelativeTime: sessionRelativeTime)
             guard let sampleBuffer = AudioSampleBufferFactory.makePCMSampleBuffer(
                 data: data,
-                sampleRate: Double(NoteVConfig.Audio.sampleRate),
+                sampleRate: sampleRate,
                 channels: UInt32(NoteVConfig.Audio.channels),
                 presentationTime: presentationTime
             ) else {

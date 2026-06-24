@@ -70,6 +70,9 @@ actor DeepgramService {
     /// Receive loop task
     private var receiveTask: Task<Void, Never>?
 
+    /// Set when the receive loop exits (socket dead)
+    private var receiveLoopEnded = false
+
     /// Whether the service is actively connected
     private(set) var isConnected: Bool = false
 
@@ -128,6 +131,7 @@ actor DeepgramService {
         lastAudioSendTime = Date()
         hasReceivedMetadata = false
         connectionLostBeforeReady = false
+        receiveLoopEnded = false
 
         NSLog("[DeepgramService] WebSocket connection initiated — model: \(NoteVConfig.Audio.deepgramModel)")
 
@@ -139,6 +143,9 @@ actor DeepgramService {
         try await waitForMetadataReady(timeoutNanoseconds: timeoutNs)
         guard hasReceivedMetadata else {
             throw DeepgramError.connectionFailed("Deepgram Metadata was not received")
+        }
+        guard !receiveLoopEnded, webSocketTask != nil else {
+            throw DeepgramError.connectionFailed("WebSocket closed after Metadata")
         }
         isConnected = true
         NSLog("[DeepgramService] Connection ready — Metadata received")
@@ -237,7 +244,14 @@ actor DeepgramService {
             }
 
             NSLog("[DeepgramService] Receive loop ended")
+            if let self {
+                await self.markReceiveLoopEnded()
+            }
         }
+    }
+
+    private func markReceiveLoopEnded() {
+        receiveLoopEnded = true
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {

@@ -226,7 +226,7 @@ final class VideoPipelineTests: XCTestCase {
         let pcm = Data(repeating: 0, count: 3200)
         guard let audioBuffer = AudioSampleBufferFactory.makePCMSampleBuffer(
             data: pcm,
-            sampleRate: 16_000,
+            sampleRate: Double(NoteVConfig.Audio.muxSampleRate),
             channels: 1,
             presentationTime: CMTime(seconds: 0, preferredTimescale: 600)
         ) else {
