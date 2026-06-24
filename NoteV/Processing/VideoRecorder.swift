@@ -1,0 +1,174 @@
+import AVFoundation
+import Foundation
+
+// MARK: - VideoRecorder
+
+/// Writes continuous H.264/AAC MP4 from CMSampleBuffers (phone camera or glasses DAT stream).
+final class VideoRecorder: @unchecked Sendable {
+
+    enum VideoRecorderError: Error, LocalizedError {
+        case alreadyRecording
+        case notRecording
+        case writerFailed(String)
+        case missingFormat
+
+        var errorDescription: String? {
+            switch self {
+            case .alreadyRecording: return "Video recording already in progress"
+            case .notRecording: return "No active video recording"
+            case .writerFailed(let msg): return "Video write failed: \(msg)"
+            case .missingFormat: return "Could not read media format from sample buffer"
+            }
+        }
+    }
+
+    private let queue = DispatchQueue(label: "com.notev.videoRecorder")
+    private var assetWriter: AVAssetWriter?
+    private var videoInput: AVAssetWriterInput?
+    private var audioInput: AVAssetWriterInput?
+    private var outputURL: URL?
+    private var sessionStarted = false
+
+    // MARK: - Lifecycle
+
+    func startRecording(to url: URL) throws {
+        try queue.sync {
+            guard assetWriter == nil else { throw VideoRecorderError.alreadyRecording }
+
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
+
+            let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+            assetWriter = writer
+            outputURL = url
+            sessionStarted = false
+            videoInput = nil
+            audioInput = nil
+            NSLog("[VideoRecorder] Started — output: \(url.lastPathComponent)")
+        }
+    }
+
+    func appendVideo(_ sampleBuffer: CMSampleBuffer) {
+        queue.async { [weak self] in
+            self?.appendSampleBuffer(sampleBuffer, mediaType: .video)
+        }
+    }
+
+    func appendAudio(_ sampleBuffer: CMSampleBuffer) {
+        queue.async { [weak self] in
+            self?.appendSampleBuffer(sampleBuffer, mediaType: .audio)
+        }
+    }
+
+    func finishRecording() async throws -> URL? {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [weak self] in
+                guard let self, let writer = self.assetWriter, let url = self.outputURL else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                guard self.sessionStarted else {
+                    self.reset()
+                    NSLog("[VideoRecorder] No frames written — discarding empty file")
+                    try? FileManager.default.removeItem(at: url)
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                self.videoInput?.markAsFinished()
+                self.audioInput?.markAsFinished()
+
+                writer.finishWriting {
+                    let status = writer.status
+                    let errorMessage = writer.error?.localizedDescription ?? "unknown"
+                    self.reset()
+
+                    if status == .completed {
+                        NSLog("[VideoRecorder] Finished — saved \(url.lastPathComponent)")
+                        continuation.resume(returning: url)
+                    } else {
+                        try? FileManager.default.removeItem(at: url)
+                        continuation.resume(throwing: VideoRecorderError.writerFailed(errorMessage))
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Private
+
+    private func appendSampleBuffer(_ sampleBuffer: CMSampleBuffer, mediaType: AVMediaType) {
+        guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
+
+        do {
+            try configureInputIfNeeded(for: sampleBuffer, mediaType: mediaType)
+            try startSessionIfNeeded(with: sampleBuffer)
+
+            guard let writer = assetWriter, writer.status != .failed else {
+                throw VideoRecorderError.writerFailed(assetWriter?.error?.localizedDescription ?? "writer failed")
+            }
+
+            let input = mediaType == .video ? videoInput : audioInput
+            guard let input, input.isReadyForMoreMediaData else { return }
+
+            if !input.append(sampleBuffer) {
+                throw VideoRecorderError.writerFailed("append returned false for \(mediaType.rawValue)")
+            }
+        } catch {
+            NSLog("[VideoRecorder] ERROR appending \(mediaType.rawValue): \(error.localizedDescription)")
+        }
+    }
+
+    private func configureInputIfNeeded(for sampleBuffer: CMSampleBuffer, mediaType: AVMediaType) throws {
+        guard let writer = assetWriter else { throw VideoRecorderError.notRecording }
+
+        if mediaType == .video, videoInput == nil {
+            guard let format = CMSampleBufferGetFormatDescription(sampleBuffer) else {
+                throw VideoRecorderError.missingFormat
+            }
+            let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+            let settings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: Int(dimensions.width),
+                AVVideoHeightKey: Int(dimensions.height)
+            ]
+            let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+            input.expectsMediaDataInRealTime = true
+            guard writer.canAdd(input) else {
+                throw VideoRecorderError.writerFailed("cannot add video track")
+            }
+            writer.add(input)
+            videoInput = input
+        }
+
+        if mediaType == .audio, audioInput == nil {
+            let input = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
+            input.expectsMediaDataInRealTime = true
+            guard writer.canAdd(input) else {
+                throw VideoRecorderError.writerFailed("cannot add audio track")
+            }
+            writer.add(input)
+            audioInput = input
+        }
+    }
+
+    private func startSessionIfNeeded(with sampleBuffer: CMSampleBuffer) throws {
+        guard let writer = assetWriter, !sessionStarted else { return }
+        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        guard writer.startWriting() else {
+            throw VideoRecorderError.writerFailed(writer.error?.localizedDescription ?? "startWriting failed")
+        }
+        writer.startSession(atSourceTime: timestamp)
+        sessionStarted = true
+    }
+
+    private func reset() {
+        assetWriter = nil
+        videoInput = nil
+        audioInput = nil
+        outputURL = nil
+        sessionStarted = false
+    }
+}

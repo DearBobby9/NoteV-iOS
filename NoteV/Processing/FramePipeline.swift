@@ -23,8 +23,8 @@ final class FramePipeline {
     private let burstFrameCount: Int = NoteVConfig.Frame.burstFrameCount
     private let burstSamplingInterval: TimeInterval = 1.0
 
-    /// Callback to dynamically adjust capture provider's sampling interval.
-    /// Set by SessionRecorder to bridge FramePipeline → PhoneCaptureProvider.
+    /// Callback to dynamically adjust ingress sampling interval (burst mode).
+    /// Set by SessionRecorder to bridge FramePipeline → VisualSampleProcessor.
     var onSamplingIntervalChanged: ((TimeInterval) -> Void)?
 
     private let ciContext = CIContext()
@@ -59,7 +59,7 @@ final class FramePipeline {
 
             frameIndex += 1
 
-            // Throttle removed from FramePipeline — PhoneCaptureProvider now pre-throttles.
+            // Throttle removed from FramePipeline — VisualSampleProcessor pre-throttles ingress.
             // Every frame that arrives here has already passed the time gate.
 
             lastSampleTime = frame.timestamp

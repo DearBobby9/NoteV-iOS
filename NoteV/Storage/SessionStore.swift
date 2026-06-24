@@ -34,6 +34,23 @@ final class SessionStore {
         }
     }
 
+    /// Create the per-session folder before writing MP4 or other session artifacts.
+    func ensureSessionDirectory(for sessionId: UUID) throws {
+        ensureDirectoryExists()
+        let sessionDir = sessionDirectory(for: sessionId)
+        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+    }
+
+    // MARK: - Session Paths
+
+    func sessionDirectory(for sessionId: UUID) -> URL {
+        sessionsDirectory.appendingPathComponent(sessionId.uuidString)
+    }
+
+    func videoURL(for sessionId: UUID) -> URL {
+        sessionDirectory(for: sessionId).appendingPathComponent(NoteVConfig.Storage.sessionVideoFilename)
+    }
+
     // MARK: - Save
 
     /// Save a session to disk.

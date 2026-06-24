@@ -48,6 +48,11 @@ final class SessionRecorder: ObservableObject {
     private var frameCollectorTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
 
+    // Video recording (phone path in PR 1)
+    private var videoRecorder: VideoRecorder?
+    private var visualSampleProcessor: VisualSampleProcessor?
+    private var videoRecordingFailed = false
+
     // MARK: - Init
 
     init(appState: AppState? = nil) {
@@ -84,7 +89,43 @@ final class SessionRecorder: ObservableObject {
         audioPipeline = AudioPipeline()
         framePipeline = FramePipeline()
 
+        videoRecorder = nil
+        visualSampleProcessor = nil
+        videoRecordingFailed = false
+
         appState?.sessionStatus = .recording
+
+        let processor = VisualSampleProcessor()
+
+        // Prepare video recording before capture starts (skipped on Simulator)
+        #if !targetEnvironment(simulator)
+        if NoteVConfig.Video.enabled {
+            let videoURL = sessionStore.videoURL(for: newSessionId)
+            let recorder = VideoRecorder()
+            do {
+                try sessionStore.ensureSessionDirectory(for: newSessionId)
+                try recorder.startRecording(to: videoURL)
+                processor.videoRecorder = recorder
+                videoRecorder = recorder
+            } catch {
+                NSLog("[SessionRecorder] WARNING: Could not start video recording: \(error.localizedDescription)")
+                videoRecordingFailed = true
+            }
+        }
+        #endif
+
+        visualSampleProcessor = processor
+
+        let provider = captureManager.selectProvider(preferredSource: preferredSource)
+        provider.visualSampleProcessor = processor
+        provider.videoRecorder = videoRecorder
+
+        framePipeline.onSamplingIntervalChanged = { interval in
+            processor.setSamplingInterval(interval)
+            if let glassesProvider = provider as? GlassesCaptureProvider {
+                glassesProvider.setSamplingInterval(interval)
+            }
+        }
 
         // Start capture with user's preferred source
         do {
@@ -92,6 +133,11 @@ final class SessionRecorder: ObservableObject {
         } catch {
             // [P2 fix] Roll back state on failure
             NSLog("[SessionRecorder] ERROR: startCapture failed — rolling back state")
+            if let recorder = videoRecorder {
+                _ = try? await recorder.finishRecording()
+                videoRecorder = nil
+                visualSampleProcessor = nil
+            }
             appState?.sessionStatus = .error(error.localizedDescription)
             appState?.phoneStatus = .connected
             sessionStartTime = nil
@@ -118,17 +164,6 @@ final class SessionRecorder: ObservableObject {
             appState?.phoneStatus = .active
         }
         NSLog("[SessionRecorder] Active capture source: \(captureManager.activeSource.rawValue)")
-
-        // Wire FramePipeline burst mode → provider sampling interval
-        if let phoneProvider = provider as? PhoneCaptureProvider {
-            framePipeline.onSamplingIntervalChanged = { [weak phoneProvider] interval in
-                phoneProvider?.setSamplingInterval(interval)
-            }
-        } else if let glassesProvider = provider as? GlassesCaptureProvider {
-            framePipeline.onSamplingIntervalChanged = { [weak glassesProvider] interval in
-                glassesProvider?.setSamplingInterval(interval)
-            }
-        }
 
         // Access streams (must be accessed before starting pipelines)
         let audioStream = provider.audioStream
@@ -194,6 +229,26 @@ final class SessionRecorder: ObservableObject {
         frameCollectorTask = nil
         NSLog("[SessionRecorder] Collector tasks drained")
 
+        // 8. Finish MP4 after pipelines and collectors have drained
+        var savedVideoFilename: String? = nil
+        if let recorder = videoRecorder {
+            do {
+                if let _ = try await recorder.finishRecording() {
+                    savedVideoFilename = NoteVConfig.Storage.sessionVideoFilename
+                    NSLog("[SessionRecorder] Session video saved")
+                }
+            } catch {
+                videoRecordingFailed = true
+                NSLog("[SessionRecorder] ERROR finishing video: \(error.localizedDescription)")
+            }
+            videoRecorder = nil
+            visualSampleProcessor = nil
+        }
+
+        if videoRecordingFailed {
+            NSLog("[SessionRecorder] WARNING: Video recording failed — transcript and frames were still saved")
+        }
+
         let endDate = Date()
         let duration = endDate.timeIntervalSince(sessionStartTime ?? endDate)
 
@@ -202,7 +257,8 @@ final class SessionRecorder: ObservableObject {
             startDate: sessionStartTime ?? endDate,
             endDate: endDate,
             captureSource: captureManager.activeSource,
-            durationSeconds: duration
+            durationSeconds: duration,
+            videoFilename: savedVideoFilename
         )
 
         // [P1 fix] Keep all segments with text, not just isFinal

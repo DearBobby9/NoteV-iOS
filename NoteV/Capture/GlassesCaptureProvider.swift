@@ -31,27 +31,37 @@ final class GlassesCaptureProvider: CaptureProvider {
     // Audio (glasses mic via Bluetooth HFP, not DAT SDK)
     private let audioEngine = AVAudioEngine()
 
-    // Frame throttle — only encode 1 frame per samplingInterval (checked on MainActor, ~24 comparisons/sec)
+    // Frame throttle for legacy fallback when no VisualSampleProcessor is attached
     private var lastYieldTime: TimeInterval = -999
     private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
+    private var frameIndex: Int = 0
+    private var legacyFrameContinuation: AsyncStream<TimestampedFrame>.Continuation?
 
     // Session state
     private var sessionStartTime: Date?
-    private var frameIndex: Int = 0
     private var isStreaming = false
 
     // Photo capture async continuation
     private var photoContinuation: CheckedContinuation<Data, Error>?
 
     // AsyncStream continuations
-    private var frameContinuation: AsyncStream<TimestampedFrame>.Continuation?
     private var audioContinuation: AsyncStream<AudioChunk>.Continuation?
 
     private(set) var isAvailable: Bool = false
 
-    lazy var frameStream: AsyncStream<TimestampedFrame> = {
+    var videoRecorder: VideoRecorder?
+    var visualSampleProcessor: VisualSampleProcessor?
+
+    /// Set in `startCapture()` so DAT callbacks can fan out samples without hopping to MainActor.
+    private nonisolated(unsafe) var videoIngressProcessor: VisualSampleProcessor?
+
+    var frameStream: AsyncStream<TimestampedFrame> {
+        visualSampleProcessor?.frameStream ?? legacyFrameStream
+    }
+
+    private lazy var legacyFrameStream: AsyncStream<TimestampedFrame> = {
         AsyncStream { continuation in
-            self.frameContinuation = continuation
+            self.legacyFrameContinuation = continuation
         }
     }()
 
@@ -70,7 +80,7 @@ final class GlassesCaptureProvider: CaptureProvider {
         let config = StreamSessionConfig(
             videoCodec: VideoCodec.raw,
             resolution: StreamingResolution.high,
-            frameRate: 2
+            frameRate: UInt(NoteVConfig.Video.glassesStreamFrameRate)
         )
         self.streamSession = StreamSession(
             streamSessionConfig: config,
@@ -116,10 +126,16 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
         }
 
-        // Video frames — throttle on MainActor (24 comparisons/sec, encode only ~12/min at 5s interval)
+        // Video frames — full rate to MP4 via VisualSampleProcessor; throttled JPEGs for analysis
         videoFrameListenerToken = streamSession.videoFramePublisher.listen { [weak self] videoFrame in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+            if let processor = self?.videoIngressProcessor {
+                processor.processVideoSample(videoFrame.sampleBuffer)
+                return
+            }
+
+            guard let self else { return }
+            // Legacy fallback when processor not wired
+            Task { @MainActor in
                 let now = self.currentTimestamp()
                 guard now - self.lastYieldTime >= self.samplingInterval else { return }
                 self.lastYieldTime = now
@@ -140,7 +156,7 @@ final class GlassesCaptureProvider: CaptureProvider {
                     imageData: jpegData
                 )
 
-                self.frameContinuation?.yield(frame)
+                self.legacyFrameContinuation?.yield(frame)
             }
         }
 
@@ -185,6 +201,9 @@ final class GlassesCaptureProvider: CaptureProvider {
         // captures them. Without this, audioContinuation is nil when installTap runs.
         _ = self.audioStream
         _ = self.frameStream
+
+        visualSampleProcessor?.reset()
+        videoIngressProcessor = visualSampleProcessor
 
         // Check/request camera permission via DAT SDK
         do {
@@ -233,7 +252,9 @@ final class GlassesCaptureProvider: CaptureProvider {
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
 
-        frameContinuation?.finish()
+        visualSampleProcessor?.finishFrames()
+        videoIngressProcessor = nil
+        legacyFrameContinuation?.finish()
         audioContinuation?.finish()
 
         // Clean up pending photo continuation

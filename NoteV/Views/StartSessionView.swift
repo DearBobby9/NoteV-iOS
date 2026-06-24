@@ -8,7 +8,7 @@ import Speech
 struct StartSessionView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var sessionRecorder: SessionRecorder
-    @StateObject private var captureManager = CaptureManager()
+    @EnvironmentObject var captureManager: CaptureManager
     @State private var showSettings = false
     @State private var selectedSource: CaptureSource = .phone
     @State private var detectedCourse: Course?
@@ -410,5 +410,6 @@ private struct CaptureSourcePicker: View {
         StartSessionView()
             .environmentObject(AppState())
             .environmentObject(SessionRecorder())
+            .environmentObject(CaptureManager())
     }
 }

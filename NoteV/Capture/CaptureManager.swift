@@ -26,6 +26,8 @@ final class CaptureManager: ObservableObject {
 
     private var registrationTask: Task<Void, Never>?
     private var deviceStreamTask: Task<Void, Never>?
+    private var previousRegistrationState: RegistrationState?
+    private var isStartingRegistration = false
 
     // MARK: - Computed
 
@@ -57,6 +59,27 @@ final class CaptureManager: ObservableObject {
         registrationTask = Task { @MainActor [weak self, wearables] in
             for await state in wearables.registrationStateStream() {
                 guard let self else { break }
+
+                if self.previousRegistrationState == .registering,
+                   state == .available {
+                    self.isStartingRegistration = false
+                    if self.glassesError == nil {
+                        self.glassesError = """
+                        Registration didn't finish. In Meta AI, approve the connection and return to NoteV. \
+                        Confirm your release channel is published, your account is added as a test user, \
+                        and glasses firmware is up to date (v125+). For Oakley Meta Vanguard, install the \
+                        DAT app on the glasses from Meta AI → Settings if prompted.
+                        """
+                    }
+                    NSLog("[CaptureManager] Registration rolled back to available without completing")
+                }
+
+                if state == .registered {
+                    self.isStartingRegistration = false
+                    self.glassesError = nil
+                }
+
+                self.previousRegistrationState = state
                 self.registrationState = state
                 NSLog("[CaptureManager] Registration state: \(state)")
             }
@@ -80,8 +103,11 @@ final class CaptureManager: ObservableObject {
     // MARK: - Glasses Connection
 
     func connectGlasses() {
-        guard registrationState != .registering else { return }
+        guard registrationState != .registering, !isStartingRegistration else { return }
+        isStartingRegistration = true
+        glassesError = nil
         Task { @MainActor in
+            defer { isStartingRegistration = false }
             do {
                 try await wearables.startRegistration()
                 NSLog("[CaptureManager] Registration started")

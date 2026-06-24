@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 // MARK: - NoteVConfig
@@ -154,6 +155,21 @@ enum NoteVConfig {
         static let jpegCompressionQuality: CGFloat = 0.92
         /// Directory name for session data
         static let sessionsDirectory: String = "NoteVSessions"
+        /// Full-session MP4 filename inside each session folder
+        static let sessionVideoFilename: String = "session.mp4"
+    }
+
+    // MARK: - Video Recording
+
+    enum Video {
+        /// Whether full-session MP4 recording is enabled
+        static let enabled: Bool = true
+        /// Target capture frame rate for MP4 (phone camera + glasses DAT stream)
+        static let targetFrameRate: Int32 = 30
+        /// iPhone camera session preset for full video recording
+        static let phoneSessionPreset: AVCaptureSession.Preset = .hd1280x720
+        /// Glasses DAT StreamSession frame rate (valid: 2, 7, 15, 24, 30)
+        static let glassesStreamFrameRate: Int = 30
     }
 
     // MARK: - Design System

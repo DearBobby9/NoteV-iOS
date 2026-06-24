@@ -18,84 +18,82 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>notev</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>DEEPGRAM_API_KEY</key>
+	<string>$(DEEPGRAM_API_KEY)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fb-viewapp</string>
+		<string>meta-ai</string>
+		<string>metaai</string>
+	</array>
+	<key>MWDAT</key>
+	<dict>
+		<key>AppLinkURLScheme</key>
+		<string>notev://</string>
+		<key>ClientToken</key>
+		<string>$(META_CLIENT_TOKEN)</string>
+		<key>DAMEnabled</key>
+		<true/>
+		<key>MetaAppID</key>
+		<string>$(META_APP_ID)</string>
+		<key>TeamID</key>
+		<string>$(DEVELOPMENT_TEAM)</string>
+	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>NoteV creates calendar events for class deadlines and exam dates.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>NoteV uses the camera to capture lecture content for your notes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NoteV uses the microphone to transcribe lecture audio.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>NoteV exports class action items to your Reminders for easy tracking.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>NoteV uses speech recognition to detect bookmark commands and transcribe audio.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
-	<key>UILaunchScreen</key>
-	<dict/>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>armv7</string>
-	</array>
-
-	<!-- API Keys (injected via Config.xcconfig / Secrets.xcconfig) -->
-	<key>DEEPGRAM_API_KEY</key>
-	<string>$(DEEPGRAM_API_KEY)</string>
-
-	<!-- Meta DAT SDK Configuration -->
-	<key>MWDAT</key>
-	<dict>
-		<key>AppLinkURLScheme</key>
-		<string>notev://</string>
-		<key>MetaAppID</key>
-		<string>$(META_APP_ID)</string>
-		<key>ClientToken</key>
-		<string>$(META_CLIENT_TOKEN)</string>
-		<key>TeamID</key>
-		<string>$(DEVELOPMENT_TEAM)</string>
-	</dict>
-
-	<!-- URL Schemes -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>notev</string>
-			</array>
-			<key>CFBundleURLName</key>
-			<string>com.notev.app</string>
-		</dict>
-	</array>
-
-	<!-- Privacy Permissions -->
-	<key>NSCameraUsageDescription</key>
-	<string>NoteV uses the camera to capture lecture content for your notes.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>NoteV uses the microphone to transcribe lecture audio.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>NoteV uses speech recognition to detect bookmark commands and transcribe audio.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>NoteV connects to Meta Ray-Ban smart glasses via Bluetooth.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>NoteV exports class action items to your Reminders for easy tracking.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>NoteV creates calendar events for class deadlines and exam dates.</string>
-
-	<!-- External Accessory Protocols (required for Meta glasses discovery) -->
-	<key>UISupportedExternalAccessoryProtocols</key>
-	<array>
-		<string>com.meta.ar.wearable</string>
-	</array>
-
-	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-peripheral</string>
 		<string>external-accessory</string>
 		<string>audio</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.meta.ar.wearable</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 </dict>
 </plist>

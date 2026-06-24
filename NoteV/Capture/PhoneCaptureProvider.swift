@@ -5,7 +5,7 @@ import UIKit
 // MARK: - PhoneCaptureProvider
 
 /// Captures frames and audio from the iPhone's camera and microphone.
-/// Uses AVCaptureSession for video + AVAudioEngine for audio (16kHz mono PCM).
+/// Uses AVCaptureSession for video + mic audio (16kHz mono PCM for STT, muxed into MP4).
 final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
     // MARK: - Properties
@@ -13,33 +13,29 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
     private let captureSession = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
     private let videoOutput = AVCaptureVideoDataOutput()
+    private let audioOutput = AVCaptureAudioDataOutput()
     private let videoQueue = DispatchQueue(label: "com.notev.videoQueue", qos: .userInitiated)
+    private let audioQueue = DispatchQueue(label: "com.notev.audioQueue", qos: .userInitiated)
 
-    private let audioEngine = AVAudioEngine()
+    var videoRecorder: VideoRecorder?
+    var visualSampleProcessor: VisualSampleProcessor?
 
-    private var frameContinuation: AsyncStream<TimestampedFrame>.Continuation?
     private var audioContinuation: AsyncStream<AudioChunk>.Continuation?
 
-    private var sessionStartTime: Date?
-    private var frameIndex: Int = 0
-
-    // Reuse CIContext across all frames (creating per-frame causes massive memory churn)
-    private let ciContext = CIContext()
-
-    // Frame throttle — only encode 1 frame per samplingInterval (default 5s)
-    private var lastYieldTime: TimeInterval = -999
-    private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
+    private var acceptingSamples = true
 
     // Photo capture completion handler
     private var photoContinuation: CheckedContinuation<Data, Error>?
 
+    // STT audio conversion (reused across buffers)
+    private var audioConverter: AVAudioConverter?
+    private var audioTargetFormat: AVAudioFormat?
+
     private(set) var isAvailable: Bool = true
 
-    lazy var frameStream: AsyncStream<TimestampedFrame> = {
-        AsyncStream { continuation in
-            self.frameContinuation = continuation
-        }
-    }()
+    var frameStream: AsyncStream<TimestampedFrame> {
+        visualSampleProcessor?.frameStream ?? AsyncStream { $0.finish() }
+    }
 
     lazy var audioStream: AsyncStream<AudioChunk> = {
         AsyncStream { continuation in
@@ -59,7 +55,7 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
     private func configureCaptureSession() {
         captureSession.beginConfiguration()
-        captureSession.sessionPreset = .medium
+        captureSession.sessionPreset = NoteVConfig.Video.phoneSessionPreset
 
         // Video input — back camera
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -74,9 +70,20 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
             captureSession.addInput(videoInput)
         }
 
+        configureCameraFrameRate(videoInput.device)
+
+        // Microphone input — shared with MP4 mux and STT
+        if let microphone = AVCaptureDevice.default(for: .audio),
+           let micInput = try? AVCaptureDeviceInput(device: microphone),
+           captureSession.canAddInput(micInput) {
+            captureSession.addInput(micInput)
+        } else {
+            NSLog("[PhoneCaptureProvider] WARNING: Could not configure microphone input")
+        }
+
         // Video output — BGRA for easy conversion
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
-        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.alwaysDiscardsLateVideoFrames = false
         videoOutput.setSampleBufferDelegate(self, queue: videoQueue)
 
         if captureSession.canAddOutput(videoOutput) {
@@ -98,133 +105,168 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
             photoConnection.videoOrientation = .portrait
         }
 
+        audioOutput.setSampleBufferDelegate(self, queue: audioQueue)
+        if captureSession.canAddOutput(audioOutput) {
+            captureSession.addOutput(audioOutput)
+        }
+
         captureSession.commitConfiguration()
-        NSLog("[PhoneCaptureProvider] AVCaptureSession configured — camera + photo output ready")
+        NSLog("[PhoneCaptureProvider] AVCaptureSession configured — camera + photo + audio output ready")
+    }
+
+    private func configureCameraFrameRate(_ device: AVCaptureDevice) {
+        let fps = NoteVConfig.Video.targetFrameRate
+        let frameDuration = CMTime(value: 1, timescale: fps)
+        do {
+            try device.lockForConfiguration()
+            device.activeVideoMinFrameDuration = frameDuration
+            device.activeVideoMaxFrameDuration = frameDuration
+            device.unlockForConfiguration()
+            NSLog("[PhoneCaptureProvider] Camera locked to \(fps) fps")
+        } catch {
+            NSLog("[PhoneCaptureProvider] WARNING: Could not set \(fps) fps — \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Audio Configuration
 
-    private func configureAudioEngine() throws {
+    private func configureAudioSession() throws {
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
         try audioSession.setActive(true)
+    }
 
-        let inputNode = audioEngine.inputNode
-        let hardwareFormat = inputNode.outputFormat(forBus: 0)
+    private func prepareAudioConverter(for sampleBuffer: CMSampleBuffer) -> Bool {
+        guard audioConverter == nil else { return true }
 
-        // Target format: 16kHz mono Int16 PCM
+        guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) else {
+            return false
+        }
+
+        let sourceFormat = AVAudioFormat(cmAudioFormatDescription: formatDescription)
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: Double(NoteVConfig.Audio.sampleRate),
             channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
             interleaved: true
         ) else {
-            NSLog("[PhoneCaptureProvider] ERROR: Could not create target audio format")
-            return
+            return false
         }
 
-        // Install converter if sample rates differ
-        guard let converter = AVAudioConverter(from: hardwareFormat, to: targetFormat) else {
-            NSLog("[PhoneCaptureProvider] ERROR: Could not create audio converter")
-            return
+        guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat) else {
+            return false
         }
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: hardwareFormat) { [weak self] buffer, time in
-            guard let self = self else { return }
+        audioConverter = converter
+        audioTargetFormat = targetFormat
+        return true
+    }
 
-            // Convert to target format
-            let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * targetFormat.sampleRate / hardwareFormat.sampleRate)
-            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else { return }
-
-            var error: NSError?
-            let status = converter.convert(to: convertedBuffer, error: &error) { inNumPackets, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-
-            guard status != .error, error == nil else {
-                NSLog("[PhoneCaptureProvider] Audio conversion error: \(error?.localizedDescription ?? "unknown")")
-                return
-            }
-
-            // Extract PCM data
-            guard let channelData = convertedBuffer.int16ChannelData else { return }
-            let byteCount = Int(convertedBuffer.frameLength) * 2 // Int16 = 2 bytes
-            let data = Data(bytes: channelData[0], count: byteCount)
-
-            let timestamp = self.currentTimestamp()
-            let duration = Double(convertedBuffer.frameLength) / targetFormat.sampleRate
-
-            let chunk = AudioChunk(
-                timestamp: timestamp,
-                data: data,
-                duration: duration
-            )
-
-            self.audioContinuation?.yield(chunk)
+    private func makeAudioChunk(from sampleBuffer: CMSampleBuffer, timestamp: TimeInterval) -> AudioChunk? {
+        guard prepareAudioConverter(for: sampleBuffer),
+              let converter = audioConverter,
+              let targetFormat = audioTargetFormat else {
+            return nil
         }
 
-        NSLog("[PhoneCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz")
+        guard let sourceBuffer = makePCMBuffer(from: sampleBuffer) else { return nil }
+
+        let frameCount = AVAudioFrameCount(
+            Double(sourceBuffer.frameLength) * targetFormat.sampleRate / sourceBuffer.format.sampleRate
+        )
+        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else {
+            return nil
+        }
+
+        var error: NSError?
+        let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return sourceBuffer
+        }
+
+        guard status != .error, error == nil else {
+            NSLog("[PhoneCaptureProvider] Audio conversion error: \(error?.localizedDescription ?? "unknown")")
+            return nil
+        }
+
+        guard let channelData = convertedBuffer.int16ChannelData else { return nil }
+        let byteCount = Int(convertedBuffer.frameLength) * 2
+        let data = Data(bytes: channelData[0], count: byteCount)
+        let duration = Double(convertedBuffer.frameLength) / targetFormat.sampleRate
+
+        return AudioChunk(timestamp: timestamp, data: data, duration: duration)
+    }
+
+    private func makePCMBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
+        guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) else { return nil }
+        let format = AVAudioFormat(cmAudioFormatDescription: formatDescription)
+
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return nil }
+        let frameCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else {
+            return nil
+        }
+
+        pcmBuffer.frameLength = AVAudioFrameCount(frameCount)
+
+        var length = 0
+        var dataPointer: UnsafeMutablePointer<Int8>?
+        guard CMBlockBufferGetDataPointer(
+            blockBuffer,
+            atOffset: 0,
+            lengthAtOffsetOut: nil,
+            totalLengthOut: &length,
+            dataPointerOut: &dataPointer
+        ) == noErr,
+              let dataPointer else {
+            return nil
+        }
+
+        let audioBufferList = pcmBuffer.mutableAudioBufferList
+        let audioBuffer = audioBufferList.pointee.mBuffers
+        guard let destination = audioBuffer.mData else { return nil }
+        memcpy(destination, dataPointer, min(length, Int(audioBuffer.mDataByteSize)))
+        return pcmBuffer
     }
 
     // MARK: - CaptureProvider
 
-    /// Update the sampling interval dynamically (called by FramePipeline for burst mode).
-    func setSamplingInterval(_ interval: TimeInterval) {
-        // Synchronize with captureOutput (runs on videoQueue).
-        videoQueue.async { [weak self] in
-            self?.samplingInterval = interval
-            NSLog("[PhoneCaptureProvider] Sampling interval set to \(String(format: "%.1f", interval))s")
-        }
-    }
-
     func startCapture() async throws {
         NSLog("[PhoneCaptureProvider] startCapture() called")
-        sessionStartTime = Date()
-        frameIndex = 0
+        acceptingSamples = true
+        audioConverter = nil
+        audioTargetFormat = nil
+        visualSampleProcessor?.reset()
 
-        // Start video capture serially on the video queue.
-        await performOnVideoQueue {
-            self.lastYieldTime = -999
-            self.samplingInterval = NoteVConfig.Frame.periodicSamplingInterval
-            self.captureSession.startRunning()
-            NSLog("[PhoneCaptureProvider] AVCaptureSession started")
+        _ = audioStream
+
+        do {
+            try configureAudioSession()
+        } catch {
+            NSLog("[PhoneCaptureProvider] ERROR configuring audio session: \(error.localizedDescription)")
+            throw error
         }
 
-        // Start audio engine
-        do {
-            try configureAudioEngine()
-            try audioEngine.start()
-            NSLog("[PhoneCaptureProvider] AVAudioEngine started")
-        } catch {
-            NSLog("[PhoneCaptureProvider] ERROR starting audio engine: \(error.localizedDescription) — rolling back")
-            // Rollback on the same queue to preserve start/stop ordering.
-            await performOnVideoQueue {
-                self.captureSession.stopRunning()
-                NSLog("[PhoneCaptureProvider] Rollback: AVCaptureSession stopped")
-            }
-            // Remove audio tap if configureAudioEngine() installed it before the throw
-            audioEngine.inputNode.removeTap(onBus: 0)
-            sessionStartTime = nil
-            throw error
+        await performOnVideoQueue {
+            self.captureSession.startRunning()
+            NSLog("[PhoneCaptureProvider] AVCaptureSession started")
         }
     }
 
     func stopCapture() async {
         NSLog("[PhoneCaptureProvider] stopCapture() called")
+        acceptingSamples = false
 
-        // Stop video on the same serial queue used for start/running callbacks.
         await performOnVideoQueue {
             self.captureSession.stopRunning()
         }
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
 
-        frameContinuation?.finish()
+        visualSampleProcessor?.finishFrames()
         audioContinuation?.finish()
 
-        sessionStartTime = nil
-        NSLog("[PhoneCaptureProvider] Capture stopped — \(frameIndex) frames produced")
+        audioConverter = nil
+        audioTargetFormat = nil
+        NSLog("[PhoneCaptureProvider] Capture stopped")
     }
 
     func capturePhoto() async throws -> Data {
@@ -244,11 +286,6 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
     // MARK: - Helpers
 
-    private func currentTimestamp() -> TimeInterval {
-        guard let start = sessionStartTime else { return 0 }
-        return Date().timeIntervalSince(start)
-    }
-
     private func performOnVideoQueue(_ work: @escaping () -> Void) async {
         await withCheckedContinuation { continuation in
             videoQueue.async {
@@ -261,40 +298,29 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
-extension PhoneCaptureProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension PhoneCaptureProvider: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        // Throttle: skip frames until samplingInterval has elapsed.
-        // This avoids JPEG encoding at 30fps — only ~12 frames/min at default 5s interval.
-        let now = currentTimestamp()
-        guard now - lastYieldTime >= samplingInterval else { return }
-        lastYieldTime = now
+        guard acceptingSamples else { return }
 
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        if output === videoOutput {
+            visualSampleProcessor?.processVideoSample(sampleBuffer)
+            return
+        }
 
-        // Convert CMSampleBuffer → JPEG Data (using class-level CIContext to avoid per-frame alloc)
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
+        if output === audioOutput {
+            guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
 
-        let uiImage = UIImage(cgImage: cgImage)
-        guard let jpegData = uiImage.jpegData(compressionQuality: NoteVConfig.Storage.jpegCompressionQuality) else { return }
+            let timestamp = visualSampleProcessor?.establishTimebaseIfNeeded(for: sampleBuffer) ?? 0
+            videoRecorder?.appendAudio(sampleBuffer)
 
-        frameIndex += 1
-
-        let filename = String(format: "frame_%04d.jpg", frameIndex)
-
-        let frame = TimestampedFrame(
-            timestamp: now,
-            trigger: .periodic,
-            changeScore: 0.0,
-            imageFilename: filename,
-            imageData: jpegData
-        )
-
-        frameContinuation?.yield(frame)
+            if let chunk = makeAudioChunk(from: sampleBuffer, timestamp: timestamp) {
+                audioContinuation?.yield(chunk)
+            }
+        }
     }
 }
 

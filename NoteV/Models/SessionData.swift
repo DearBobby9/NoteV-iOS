@@ -18,6 +18,8 @@ struct SessionMetadata: Codable, Sendable {
     let captureSource: CaptureSource
     var title: String
     var durationSeconds: TimeInterval
+    /// MP4 filename in the session folder, e.g. "session.mp4"
+    var videoFilename: String?
 
     init(
         sessionId: UUID = UUID(),
@@ -25,7 +27,8 @@ struct SessionMetadata: Codable, Sendable {
         endDate: Date? = nil,
         captureSource: CaptureSource = .phone,
         title: String = "Untitled Session",
-        durationSeconds: TimeInterval = 0
+        durationSeconds: TimeInterval = 0,
+        videoFilename: String? = nil
     ) {
         self.sessionId = sessionId
         self.startDate = startDate
@@ -33,6 +36,7 @@ struct SessionMetadata: Codable, Sendable {
         self.captureSource = captureSource
         self.title = title
         self.durationSeconds = durationSeconds
+        self.videoFilename = videoFilename
     }
 }
 
