@@ -7,8 +7,8 @@ import UIKit
 // MARK: - GlassesCaptureProvider
 
 /// Captures frames and audio from Meta Ray-Ban smart glasses via the DAT SDK.
-/// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames (video-only).
-/// Audio: Glasses mic via Bluetooth HFP → AVAudioEngine tap → 16 kHz STT + 48 kHz MP4 mux.
+/// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames.
+/// Audio: Glasses mic via Bluetooth HFP → phone AVAudioEngine → Deepgram STT + MP4 mux.
 /// Note: Glasses audio timestamps use wall-clock (`Date`); video frames use PTS. Small drift is accepted in v1.
 ///
 /// @MainActor because StreamSession and its publishers are MainActor-isolated.
@@ -146,6 +146,7 @@ final class GlassesCaptureProvider: CaptureProvider {
 
     // MARK: - CaptureProvider
 
+    /// Start capture: configure glasses HFP mic first, then DAT video stream (Meta doc order).
     func startCapture() async throws {
         NSLog("[GlassesCaptureProvider] startCapture() called")
 
@@ -177,10 +178,27 @@ final class GlassesCaptureProvider: CaptureProvider {
             throw error
         }
 
-        sessionStartTime = Date()
         streamFailedDuringStartup = false
         isStreaming = false
         isAwaitingFirstStream = true
+
+        // Meta DAT: HFP must be configured before starting the camera stream.
+        do {
+            try configureAudioEngine()
+            try audioEngine.start()
+            let hfpReady = await GlassesHFPRoute.waitForActive()
+            guard hfpReady else {
+                audioEngine.stop()
+                audioEngine.inputNode.removeTap(onBus: 0)
+                throw GlassesHFPRoute.missingRouteError
+            }
+            NSLog("[GlassesCaptureProvider] HFP route active — starting DAT video stream")
+        } catch {
+            NSLog("[GlassesCaptureProvider] ERROR starting glasses mic (HFP): \(error.localizedDescription)")
+            throw error
+        }
+
+        sessionStartTime = Date()
 
         await streamSession.start()
         NSLog("[GlassesCaptureProvider] StreamSession started")
@@ -190,22 +208,13 @@ final class GlassesCaptureProvider: CaptureProvider {
         } catch {
             isAwaitingFirstStream = false
             await streamSession.stop()
-            sessionStartTime = nil
-            throw error
-        }
-        isAwaitingFirstStream = false
-
-        do {
-            try configureAudioEngine()
-            try audioEngine.start()
-            NSLog("[GlassesCaptureProvider] AVAudioEngine started — glasses mic via Bluetooth")
-        } catch {
-            NSLog("[GlassesCaptureProvider] ERROR starting audio: \(error.localizedDescription) — rolling back stream")
-            await streamSession.stop()
+            audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
             sessionStartTime = nil
             throw error
         }
+        isAwaitingFirstStream = false
+        NSLog("[GlassesCaptureProvider] AVAudioEngine + StreamSession streaming")
     }
 
     func stopCapture() async {
@@ -253,6 +262,7 @@ final class GlassesCaptureProvider: CaptureProvider {
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.playAndRecord, mode: .videoChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try audioSession.setActive(true)
+        try GlassesHFPRoute.configurePreferredInput(on: audioSession)
 
         let inputNode = audioEngine.inputNode
         let hardwareFormat = inputNode.outputFormat(forBus: 0)

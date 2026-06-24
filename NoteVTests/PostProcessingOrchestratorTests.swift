@@ -6,7 +6,12 @@ final class PostProcessingOrchestratorTests: XCTestCase {
 
     func testPostProcessingStageDisplayNames() {
         XCTAssertEqual(PostProcessingStage.polishing.displayName, "Polishing transcript…")
+        XCTAssertEqual(PostProcessingStage.recoveringTranscript.displayName, "Recovering transcript from recording…")
         XCTAssertEqual(PostProcessingStage.extractingFrames.displayName, "Extracting frames from video…")
+    }
+
+    func testRecoveringTranscriptIsPostProcessing() {
+        XCTAssertTrue(SessionStatus.recoveringTranscript.isPostProcessing)
     }
 
     func testSessionStatusPostProcessingFlags() {

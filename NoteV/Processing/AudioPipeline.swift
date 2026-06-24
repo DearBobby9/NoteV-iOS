@@ -39,6 +39,9 @@ final class AudioPipeline {
     /// Eagerly initialized transcript stream (thread-safe, no lazy var hazard)
     let transcriptStream: AsyncStream<TranscriptSegment>
 
+    /// MainActor callback for live STT UI state.
+    var onLiveTranscriptStatusChange: (@MainActor (LiveTranscriptStatus) -> Void)?
+
     // MARK: - Init
 
     init() {
@@ -63,12 +66,7 @@ final class AudioPipeline {
         case .appleSpeech:
             await startAppleSpeechProcessing(audioStream: audioStream)
         case .deepgram:
-            if NetworkConditions.isOnCellular {
-                NSLog("[AudioPipeline] Cellular network — using Apple Speech for live transcript")
-                await startAppleSpeechProcessing(audioStream: audioStream)
-            } else {
-                await startDeepgramProcessing(audioStream: audioStream)
-            }
+            await startDeepgramProcessing(audioStream: audioStream)
         }
     }
 
@@ -146,6 +144,10 @@ final class AudioPipeline {
 
     private func startDeepgramProcessing(audioStream: AsyncStream<AudioChunk>) async {
         let coordinator = DeepgramFeedCoordinator()
+        var midSessionReconnects = 0
+        var liveUnavailable = false
+
+        reportLiveStatus(.connecting)
 
         let connectTask = Task { [weak self] () -> DeepgramService? in
             guard let self else { return nil }
@@ -156,29 +158,111 @@ final class AudioPipeline {
 
         for await chunk in audioStream {
             guard isProcessing else { break }
+            if liveUnavailable { continue }
 
             if let service = coordinator.service ?? deepgramService {
-                await activateDeepgramService(service, coordinator: coordinator)
-                await service.sendAudio(chunk)
-            } else if !connectTask.isCancelled {
-                coordinator.appendPending(chunk, maxCount: NoteVConfig.Audio.deepgramConnectBufferMaxChunks)
+                if !(await activateDeepgramService(service, coordinator: coordinator)) {
+                    liveUnavailable = true
+                    reportLiveStatus(.unavailable)
+                    continue
+                }
+
+                if !(await service.isConnected) {
+                    let reconnected = await attemptMidSessionReconnect(
+                        coordinator: coordinator,
+                        midSessionReconnects: &midSessionReconnects
+                    )
+                    if !reconnected {
+                        liveUnavailable = true
+                        reportLiveStatus(.unavailable)
+                        continue
+                    }
+                }
+
+                guard let activeService = deepgramService else { continue }
+                let sent = await activeService.sendAudio(chunk)
+                if !sent {
+                    let reconnected = await attemptMidSessionReconnect(
+                        coordinator: coordinator,
+                        midSessionReconnects: &midSessionReconnects
+                    )
+                    if reconnected, let retryService = deepgramService {
+                        _ = await retryService.sendAudio(chunk)
+                        reportLiveStatus(.streaming)
+                    } else {
+                        liveUnavailable = true
+                        reportLiveStatus(.unavailable)
+                    }
+                }
             } else {
-                break
+                coordinator.appendPending(chunk, maxCount: NoteVConfig.Audio.deepgramConnectBufferMaxChunks)
+                if deepgramService == nil, coordinator.service == nil {
+                    if let service = await connectTask.value {
+                        if !(await activateDeepgramService(service, coordinator: coordinator)) {
+                            liveUnavailable = true
+                            reportLiveStatus(.unavailable)
+                        }
+                    } else {
+                        liveUnavailable = true
+                        reportLiveStatus(.unavailable)
+                    }
+                }
             }
         }
 
         if deepgramService == nil, let service = await connectTask.value {
-            await activateDeepgramService(service, coordinator: coordinator)
+            guard await activateDeepgramService(service, coordinator: coordinator) else {
+                reportLiveStatus(.unavailable)
+                return
+            }
             for buffered in coordinator.takePending() {
-                guard isProcessing else { break }
-                await service.sendAudio(buffered)
+                guard isProcessing, !liveUnavailable else { break }
+                if !(await service.sendAudio(buffered)) {
+                    reportLiveStatus(.unavailable)
+                    break
+                }
             }
         }
 
         NSLog("[AudioPipeline] Audio feed completed — all chunks sent to Deepgram")
     }
 
-    private func activateDeepgramService(_ service: DeepgramService, coordinator: DeepgramFeedCoordinator) async {
+    private func attemptMidSessionReconnect(
+        coordinator: DeepgramFeedCoordinator,
+        midSessionReconnects: inout Int
+    ) async -> Bool {
+        if midSessionReconnects >= NoteVConfig.Audio.deepgramMidSessionReconnectMax {
+            return false
+        }
+        midSessionReconnects += 1
+        NSLog("[AudioPipeline] Mid-session Deepgram reconnect attempt \(midSessionReconnects)")
+
+        deepgramBridgeTask?.cancel()
+        deepgramBridgeTask = nil
+        if let service = deepgramService {
+            await service.disconnect()
+        }
+        deepgramService = nil
+        coordinator.setService(nil)
+
+        coordinator.resetBridge()
+
+        reportLiveStatus(.connecting)
+        guard await connectDeepgramWithRetry(maxAttempts: 2, coordinator: coordinator),
+              let service = deepgramService else {
+            return false
+        }
+        return await activateDeepgramService(service, coordinator: coordinator)
+    }
+
+    private func reportLiveStatus(_ status: LiveTranscriptStatus) {
+        guard let onLiveTranscriptStatusChange else { return }
+        Task { @MainActor in
+            onLiveTranscriptStatusChange(status)
+        }
+    }
+
+    private func activateDeepgramService(_ service: DeepgramService, coordinator: DeepgramFeedCoordinator) async -> Bool {
         deepgramService = service
 
         if coordinator.markBridgeStarted() {
@@ -194,8 +278,11 @@ final class AudioPipeline {
 
         for buffered in coordinator.takePending() {
             guard isProcessing else { break }
-            await service.sendAudio(buffered)
+            if !(await service.sendAudio(buffered)) {
+                return false
+            }
         }
+        return true
     }
 
     private func connectDeepgramWithRetry(maxAttempts: Int, coordinator: DeepgramFeedCoordinator) async -> Bool {
@@ -206,6 +293,9 @@ final class AudioPipeline {
 
             do {
                 try await service.connect()
+                await service.setOnConnectionLost { reason in
+                    NSLog("[AudioPipeline] Deepgram connection lost callback: \(reason)")
+                }
                 coordinator.setService(service)
                 NSLog("[AudioPipeline] Deepgram connected — streaming audio (attempt \(attempt))")
                 return true
@@ -406,7 +496,7 @@ private final class DeepgramFeedCoordinator: @unchecked Sendable {
         return _service
     }
 
-    func setService(_ service: DeepgramService) {
+    func setService(_ service: DeepgramService?) {
         lock.lock()
         _service = service
         lock.unlock()
@@ -435,5 +525,11 @@ private final class DeepgramFeedCoordinator: @unchecked Sendable {
         if _bridgeStarted { return false }
         _bridgeStarted = true
         return true
+    }
+
+    func resetBridge() {
+        lock.lock()
+        _bridgeStarted = false
+        lock.unlock()
     }
 }

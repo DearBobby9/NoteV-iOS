@@ -30,6 +30,8 @@ enum NoteVConfig {
         static let deepgramMetadataTimeoutSeconds: TimeInterval = 30
         /// Max audio chunks buffered while Deepgram connects in parallel (~30s of speech)
         static let deepgramConnectBufferMaxChunks: Int = 600
+        /// Mid-session WebSocket reconnect attempts after initial connect dies (LTE)
+        static let deepgramMidSessionReconnectMax: Int = 2
         /// Audio sample rate in Hz (Deepgram STT)
         static let sampleRate: Int = 16_000
         /// Sample rate for MP4 audio mux (must match VideoRecorder AAC track)
@@ -45,6 +47,10 @@ enum NoteVConfig {
     enum TranscriptExtraction {
         /// Whether to transcribe session.mp4 when live STT produced no segments
         static let enabled: Bool = true
+        /// Minimum exported audio file size before upload
+        static let minExportBytes: Int = 2048
+        /// Exported audio must be at least this fraction of video duration
+        static let minAudioDurationRatio: Double = 0.5
     }
 
     enum STTProvider: String {

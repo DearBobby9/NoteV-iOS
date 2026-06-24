@@ -56,4 +56,28 @@ final class SessionTranscriptExtractorTests: XCTestCase {
     func testDeepgramMetadataTimeoutAllowsLTE() {
         XCTAssertGreaterThanOrEqual(NoteVConfig.Audio.deepgramMetadataTimeoutSeconds, 25)
     }
+
+    func testValidateAudioPayloadRejectsSmallExport() {
+        XCTAssertThrowsError(try SessionTranscriptExtractor.validateAudioPayload(
+            data: Data(repeating: 0, count: 144),
+            audioDuration: 20,
+            videoDuration: 20
+        ))
+    }
+
+    func testValidateAudioPayloadAcceptsHealthyExport() throws {
+        try SessionTranscriptExtractor.validateAudioPayload(
+            data: Data(repeating: 0, count: 4096),
+            audioDuration: 18,
+            videoDuration: 20
+        )
+    }
+
+    func testWrapPCMAsWAVProducesValidHeader() {
+        let pcm = Data(repeating: 0, count: 3200)
+        let wav = SessionTranscriptExtractor.wrapPCMAsWAV(pcmData: pcm, sampleRate: 16_000, channels: 1)
+        XCTAssertGreaterThanOrEqual(wav.count, 44 + pcm.count)
+        XCTAssertEqual(String(data: wav.prefix(4), encoding: .ascii), "RIFF")
+        XCTAssertEqual(String(data: wav.subdata(in: 8..<12), encoding: .ascii), "WAVE")
+    }
 }

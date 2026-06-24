@@ -12,11 +12,18 @@ struct TranscriptScrollView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if appState.transcriptSegments.isEmpty {
-                        Text(appState.liveTranscriptHint ?? "Listening…")
-                            .font(.body)
-                            .foregroundColor(NoteVConfig.Design.textSecondary)
-                            .italic()
-                            .padding(.top, 8)
+                        if let warning = appState.liveTranscriptWarning {
+                            Text(warning)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .padding(.top, 8)
+                        } else {
+                            Text(appState.liveTranscriptHint ?? "Listening…")
+                                .font(.body)
+                                .foregroundColor(NoteVConfig.Design.textSecondary)
+                                .italic()
+                                .padding(.top, 8)
+                        }
                     } else {
                         ForEach(appState.transcriptSegments) { segment in
                             let bookmarkType = bookmarkTypeForSegment(segment)

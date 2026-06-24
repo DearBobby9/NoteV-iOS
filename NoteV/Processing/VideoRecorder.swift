@@ -86,6 +86,11 @@ final class VideoRecorder: @unchecked Sendable {
         }
     }
 
+    /// Number of audio samples successfully muxed into the MP4.
+    var muxedAudioSampleCount: Int {
+        queue.sync { audioSamplesAppended }
+    }
+
     /// Blocks until all previously dispatched append operations complete.
     func waitForPendingAppends() async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -147,7 +152,7 @@ final class VideoRecorder: @unchecked Sendable {
         do {
             try configureInputIfNeeded(for: sampleBuffer, mediaType: mediaType)
 
-            if mediaType == .audio, !sessionStarted {
+            if mediaType == .audio, videoInput == nil {
                 pendingAudioBuffers.append(sampleBuffer)
                 trimPendingAudioBuffersIfNeeded()
                 return
@@ -246,16 +251,23 @@ final class VideoRecorder: @unchecked Sendable {
 
     private func startSessionIfNeeded(with sampleBuffer: CMSampleBuffer) throws {
         guard let writer = assetWriter, !sessionStarted else { return }
-        // Wait for the video track before starting — audio may arrive first on glasses.
         guard videoInput != nil else { return }
 
-        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        var startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if !pendingAudioBuffers.isEmpty,
+           let firstAudio = pendingAudioBuffers.first {
+            let audioTime = CMSampleBufferGetPresentationTimeStamp(firstAudio)
+            if audioTime < startTime {
+                startTime = audioTime
+            }
+        }
+
         guard writer.startWriting() else {
             throw VideoRecorderError.writerFailed(writer.error?.localizedDescription ?? "startWriting failed")
         }
-        writer.startSession(atSourceTime: timestamp)
+        writer.startSession(atSourceTime: startTime)
         sessionStarted = true
-        sessionStartTime = timestamp
+        sessionStartTime = startTime
         try flushPendingAudioBuffers()
     }
 

@@ -48,6 +48,14 @@ struct StartSessionView: View {
                 // Capture Source Picker (visible when glasses connected)
                 if !captureManager.connectedDevices.isEmpty {
                     CaptureSourcePicker(selectedSource: $selectedSource)
+
+                    if selectedSource == .glasses {
+                        Text("Video from glasses · Audio from glasses mic · Transcription on iPhone")
+                            .font(.caption2)
+                            .foregroundColor(NoteVConfig.Design.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, NoteVConfig.Design.padding)
+                    }
                 }
 
                 Spacer()
@@ -369,12 +377,12 @@ private struct CaptureSourcePicker: View {
             sourceOption(
                 source: .glasses,
                 icon: "eyeglasses",
-                label: "Glasses"
+                label: "Glasses cam + mic"
             )
             sourceOption(
                 source: .phone,
                 icon: "iphone",
-                label: "iPhone"
+                label: "iPhone cam + mic"
             )
         }
         .background(NoteVConfig.Design.surface)

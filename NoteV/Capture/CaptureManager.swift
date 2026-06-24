@@ -175,7 +175,6 @@ final class CaptureManager: ObservableObject {
             NSLog("[CaptureManager] Capture started via \(activeSource.rawValue)")
         } catch {
             NSLog("[CaptureManager] WARNING: Capture start failed: \(error.localizedDescription) — continuing with empty streams")
-            // Don't re-throw on Simulator so the app can still run the UI flow
             #if !targetEnvironment(simulator)
             throw error
             #endif

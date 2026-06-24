@@ -643,12 +643,17 @@ struct SessionResultView: View {
     }
 
     private func reprocessStartStage(for session: SessionData) -> PostProcessingStage {
-        guard NoteVConfig.FrameExtraction.enabled,
-              session.metadata.videoFilename != nil else {
+        let videoURL = sessionStore.videoURL(for: session.id)
+        let hasVideo = session.metadata.videoFilename != nil
+            && FileManager.default.fileExists(atPath: videoURL.path)
+
+        if session.transcriptSegments.isEmpty, hasVideo, NoteVConfig.TranscriptExtraction.enabled {
+            return .recoveringTranscript
+        }
+        guard NoteVConfig.FrameExtraction.enabled, hasVideo else {
             return .polishing
         }
-        let videoURL = sessionStore.videoURL(for: session.id)
-        return FileManager.default.fileExists(atPath: videoURL.path) ? .extractingFrames : .polishing
+        return .extractingFrames
     }
 
     private func reprocessPreflightWarnings(for session: SessionData) -> [String] {

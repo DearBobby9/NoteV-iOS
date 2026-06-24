@@ -56,10 +56,20 @@ actor DeepgramService {
     // MARK: - Properties
 
     private var webSocketTask: URLSessionWebSocketTask?
-    private let session = URLSession(configuration: .default)
+    private static let streamingSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 60
+        config.multipathServiceType = .handover
+        return URLSession(configuration: config)
+    }()
+    private let session = streamingSession
     private let transcriptContinuation: AsyncStream<TranscriptSegment>.Continuation
 
     private let baseURL = "wss://api.deepgram.com/v1/listen"
+
+    /// Called when the socket dies after Metadata (LTE flap).
+    private var onConnectionLost: (@Sendable (String) -> Void)?
 
     /// Tracks the last time audio was sent, for KeepAlive timing
     private var lastAudioSendTime: Date = Date()
@@ -96,6 +106,10 @@ actor DeepgramService {
     }
 
     // MARK: - Connection
+
+    func setOnConnectionLost(_ handler: (@Sendable (String) -> Void)?) {
+        onConnectionLost = handler
+    }
 
     /// Connect to Deepgram WebSocket for streaming STT.
     func connect() async throws {
@@ -154,17 +168,19 @@ actor DeepgramService {
     // MARK: - Send Audio
 
     /// Send a chunk of raw PCM audio data to Deepgram.
-    /// Async to apply natural backpressure if the WebSocket can't keep up.
-    func sendAudio(_ chunk: AudioChunk) async {
-        guard isConnected, let ws = webSocketTask else { return }
+    /// Returns false when disconnected or send fails (caller should reconnect).
+    func sendAudio(_ chunk: AudioChunk) async -> Bool {
+        guard isConnected, let ws = webSocketTask else { return false }
 
         let message = URLSessionWebSocketTask.Message.data(chunk.data)
         do {
             try await ws.send(message)
             lastAudioSendTime = Date()
+            return true
         } catch {
             NSLog("[DeepgramService] Send error: \(error.localizedDescription)")
-            handleConnectionLost()
+            handleConnectionLost(reason: "send_failed: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -237,7 +253,7 @@ actor DeepgramService {
                 } catch {
                     if !Task.isCancelled {
                         NSLog("[DeepgramService] Receive error: \(error.localizedDescription)")
-                        await self.handleConnectionLost()
+                        await self.handleConnectionLost(reason: "receive_failed: \(error.localizedDescription)")
                     }
                     break
                 }
@@ -364,23 +380,26 @@ actor DeepgramService {
         ws.send(message) { [weak self] error in
             if let error = error {
                 NSLog("[DeepgramService] Text send error: \(error.localizedDescription)")
-                Task { await self?.handleConnectionLost() }
+                Task { await self?.handleConnectionLost(reason: "keepalive_failed: \(error.localizedDescription)") }
             }
         }
     }
 
-    private func handleConnectionLost() {
+    private func handleConnectionLost(reason: String) {
         if !hasReceivedMetadata {
             connectionLostBeforeReady = true
+            NSLog("[DeepgramService] Connection lost before Metadata — \(reason)")
             return
         }
 
         guard isConnected else { return }
-        NSLog("[DeepgramService] Connection lost")
+        NSLog("[DeepgramService] Connection lost — \(reason)")
         isConnected = false
 
         keepAliveTask?.cancel()
         keepAliveTask = nil
+
+        onConnectionLost?(reason)
 
         disconnectContinuation?.resume()
         disconnectContinuation = nil

@@ -39,6 +39,10 @@ final class SessionTranscriptExtractor {
             throw ExtractionError.notConfigured
         }
 
+        let started = Date()
+        let (uploadData, contentType, sourceLabel) = try await prepareUploadPayload(from: videoURL)
+
+        let detectEncoding = contentType == "video/mp4" ? "&detect_encoding=true" : ""
         let queryParams = [
             "model=\(NoteVConfig.Audio.deepgramModel)",
             "language=en",
@@ -47,7 +51,7 @@ final class SessionTranscriptExtractor {
             "utterances=true"
         ].joined(separator: "&")
 
-        let urlString = "https://api.deepgram.com/v1/listen?\(queryParams)"
+        let urlString = "https://api.deepgram.com/v1/listen?\(queryParams)\(detectEncoding)"
         guard let url = URL(string: urlString) else {
             throw ExtractionError.invalidURL
         }
@@ -55,13 +59,13 @@ final class SessionTranscriptExtractor {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Token \(APIKeys.deepgramAPIKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 300
 
-        let (uploadData, contentType) = try await prepareUploadPayload(from: videoURL)
-        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        NSLog("[SessionTranscriptExtractor] Uploading \(uploadData.count) bytes (\(contentType)) from \(videoURL.lastPathComponent)")
+        NSLog("[SessionTranscriptExtractor] Uploading \(uploadData.count) bytes (\(contentType), \(sourceLabel)) from \(videoURL.lastPathComponent)")
 
         let (data, response) = try await session.upload(for: request, from: uploadData)
+        let elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
 
         guard let http = response as? HTTPURLResponse else {
             throw ExtractionError.emptyResponse
@@ -77,28 +81,40 @@ final class SessionTranscriptExtractor {
             throw ExtractionError.emptyResponse
         }
 
-        NSLog("[SessionTranscriptExtractor] Extracted \(segments.count) segments from MP4")
+        NSLog("[SessionTranscriptExtractor] Extracted \(segments.count) segments from MP4 in \(elapsedMs)ms")
         return segments
     }
 
     // MARK: - Audio export
 
-    /// Prefer a small audio-only export for Deepgram; fall back to full MP4 if export fails.
-    private func prepareUploadPayload(from videoURL: URL) async throws -> (Data, String) {
+    private func prepareUploadPayload(from videoURL: URL) async throws -> (Data, String, String) {
+        let asset = AVURLAsset(url: videoURL)
+        let videoDuration = try await asset.load(.duration).seconds
+
         do {
             let audioURL = try await exportAudio(from: videoURL)
             defer { try? FileManager.default.removeItem(at: audioURL) }
             let data = try Data(contentsOf: audioURL)
-            guard data.count >= 2048 else {
-                throw ExtractionError.audioExportFailed("Exported audio too small (\(data.count) bytes)")
-            }
-            NSLog("[SessionTranscriptExtractor] Extracted \(data.count) bytes of audio from MP4")
-            return (data, "audio/m4a")
+            let audioDuration = try await Self.audioTrackDuration(in: asset)
+            try Self.validateAudioPayload(data: data, audioDuration: audioDuration, videoDuration: videoDuration)
+            NSLog("[SessionTranscriptExtractor] M4A export valid — \(data.count) bytes, \(String(format: "%.1f", audioDuration))s audio")
+            return (data, "audio/m4a", "m4a-export")
         } catch {
-            NSLog("[SessionTranscriptExtractor] Audio export failed — uploading full MP4: \(error.localizedDescription)")
-            let data = try Data(contentsOf: videoURL)
-            return (data, "video/mp4")
+            NSLog("[SessionTranscriptExtractor] M4A export failed — trying PCM/WAV: \(error.localizedDescription)")
         }
+
+        do {
+            let wavData = try await extractPCMAsWAV(from: videoURL)
+            let audioDuration = try await Self.audioTrackDuration(in: asset)
+            try Self.validateAudioPayload(data: wavData, audioDuration: audioDuration, videoDuration: videoDuration)
+            NSLog("[SessionTranscriptExtractor] PCM/WAV extraction valid — \(wavData.count) bytes")
+            return (wavData, "audio/wav", "pcm-wav")
+        } catch {
+            NSLog("[SessionTranscriptExtractor] PCM/WAV failed — uploading full MP4: \(error.localizedDescription)")
+        }
+
+        let data = try Data(contentsOf: videoURL)
+        return (data, "video/mp4", "full-mp4-fallback")
     }
 
     private func exportAudio(from videoURL: URL) async throws -> URL {
@@ -132,7 +148,110 @@ final class SessionTranscriptExtractor {
         return outputURL
     }
 
-    // MARK: - Response parsing
+    private func extractPCMAsWAV(from videoURL: URL) async throws -> Data {
+        let asset = AVURLAsset(url: videoURL)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        guard let track = audioTracks.first else {
+            throw ExtractionError.noAudioTrack
+        }
+
+        let reader = try AVAssetReader(asset: asset)
+        let outputSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+            AVSampleRateKey: NoteVConfig.Audio.sampleRate,
+            AVNumberOfChannelsKey: NoteVConfig.Audio.channels
+        ]
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw ExtractionError.audioExportFailed("Cannot add AVAssetReader output")
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw ExtractionError.audioExportFailed(reader.error?.localizedDescription ?? "AVAssetReader failed to start")
+        }
+
+        var pcmData = Data()
+        while reader.status == .reading {
+            guard let sampleBuffer = output.copyNextSampleBuffer(),
+                  let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+                continue
+            }
+            var length = 0
+            var dataPointer: UnsafeMutablePointer<Int8>?
+            guard CMBlockBufferGetDataPointer(
+                blockBuffer,
+                atOffset: 0,
+                lengthAtOffsetOut: nil,
+                totalLengthOut: &length,
+                dataPointerOut: &dataPointer
+            ) == noErr,
+                  let dataPointer else {
+                continue
+            }
+            pcmData.append(UnsafeBufferPointer(start: dataPointer, count: length))
+        }
+
+        if reader.status == .failed {
+            throw ExtractionError.audioExportFailed(reader.error?.localizedDescription ?? "AVAssetReader failed")
+        }
+
+        guard !pcmData.isEmpty else {
+            throw ExtractionError.audioExportFailed("PCM extraction produced no data")
+        }
+
+        return Self.wrapPCMAsWAV(
+            pcmData: pcmData,
+            sampleRate: NoteVConfig.Audio.sampleRate,
+            channels: NoteVConfig.Audio.channels
+        )
+    }
+
+    // MARK: - Validation helpers (testable)
+
+    static func validateAudioPayload(data: Data, audioDuration: TimeInterval, videoDuration: TimeInterval) throws {
+        guard data.count >= NoteVConfig.TranscriptExtraction.minExportBytes else {
+            throw ExtractionError.audioExportFailed("Exported audio too small (\(data.count) bytes)")
+        }
+        guard videoDuration <= 0 || audioDuration >= videoDuration * NoteVConfig.TranscriptExtraction.minAudioDurationRatio else {
+            throw ExtractionError.audioExportFailed(
+                "Audio track too short (\(String(format: "%.1f", audioDuration))s vs \(String(format: "%.1f", videoDuration))s video)"
+            )
+        }
+    }
+
+    static func audioTrackDuration(in asset: AVURLAsset) async throws -> TimeInterval {
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        guard let track = tracks.first else { return 0 }
+        let duration = try await track.load(.timeRange).duration
+        return duration.seconds
+    }
+
+    static func wrapPCMAsWAV(pcmData: Data, sampleRate: Int, channels: Int) -> Data {
+        let bitsPerSample = 16
+        let byteRate = sampleRate * channels * bitsPerSample / 8
+        let blockAlign = channels * bitsPerSample / 8
+        var header = Data()
+        header.append(contentsOf: "RIFF".utf8)
+        header.append(UInt32(36 + pcmData.count).littleEndianData)
+        header.append(contentsOf: "WAVE".utf8)
+        header.append(contentsOf: "fmt ".utf8)
+        header.append(UInt32(16).littleEndianData)
+        header.append(UInt16(1).littleEndianData)
+        header.append(UInt16(channels).littleEndianData)
+        header.append(UInt32(sampleRate).littleEndianData)
+        header.append(UInt32(byteRate).littleEndianData)
+        header.append(UInt16(blockAlign).littleEndianData)
+        header.append(UInt16(bitsPerSample).littleEndianData)
+        header.append(contentsOf: "data".utf8)
+        header.append(UInt32(pcmData.count).littleEndianData)
+        header.append(pcmData)
+        return header
+    }
 
     static func parseSegments(from data: Data) throws -> [TranscriptSegment] {
         let response = try JSONDecoder().decode(PrerecordedResponse.self, from: data)
@@ -194,7 +313,17 @@ final class SessionTranscriptExtractor {
     }
 }
 
-// MARK: - Deepgram pre-recorded response models
+private extension FixedWidthInteger {
+    var littleEndianData: Data {
+        withUnsafeBytes(of: littleEndian) { Data($0) }
+    }
+}
+
+private extension CMTime {
+    var seconds: TimeInterval {
+        CMTimeGetSeconds(self)
+    }
+}
 
 private struct PrerecordedResponse: Decodable {
     let results: PrerecordedResults?

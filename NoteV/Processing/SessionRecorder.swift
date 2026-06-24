@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import AVFoundation
 
 // MARK: - SessionRecorder
 
@@ -52,6 +53,7 @@ final class SessionRecorder: ObservableObject {
     private var videoRecorder: VideoRecorder?
     private var visualSampleProcessor: VisualSampleProcessor?
     private var videoRecordingFailed = false
+    private var audioRouteMonitor: AudioRouteMonitor?
 
     // MARK: - Init
 
@@ -94,12 +96,14 @@ final class SessionRecorder: ObservableObject {
         videoRecordingFailed = false
 
         appState?.sessionStatus = .recording
-
-        if NoteVConfig.Audio.sttProvider == .deepgram && NetworkConditions.isOnCellular {
-            appState?.liveTranscriptHint = "Transcribing on-device (cellular)…"
+        appState?.liveTranscriptStatus = .idle
+        appState?.liveTranscriptWarning = nil
+        if preferredSource == .glasses {
+            appState?.liveTranscriptHint = "Connecting glasses mic · live transcription on iPhone…"
         } else {
             appState?.liveTranscriptHint = "Connecting to live transcription…"
         }
+        appState?.audioSourceWarning = nil
 
         let processor = VisualSampleProcessor()
 
@@ -138,9 +142,29 @@ final class SessionRecorder: ObservableObject {
             processor.setSamplingInterval(interval)
         }
 
-        // Prime AsyncStream continuations before capture delivers samples.
+        // Audio from active provider (glasses mic via Bluetooth HFP, or phone mic).
+        // STT processed on iPhone via Deepgram WebSocket.
         let audioStream = provider.audioStream
         let frameStream = provider.frameStream
+
+        audioPipeline.onLiveTranscriptStatusChange = { [weak self] status in
+            self?.appState?.liveTranscriptStatus = status
+            switch status {
+            case .unavailable:
+                self?.appState?.liveTranscriptHint = nil
+                self?.appState?.liveTranscriptWarning =
+                    "Live transcription unavailable — recording continues. Transcript will be recovered after class."
+            case .connecting:
+                if self?.appState?.liveTranscriptHint == nil {
+                    self?.appState?.liveTranscriptHint = "Connecting to live transcription…"
+                }
+            case .streaming:
+                self?.appState?.liveTranscriptHint = nil
+                self?.appState?.liveTranscriptWarning = nil
+            case .idle:
+                break
+            }
+        }
 
         // Start capture with user's preferred source
         do {
@@ -175,6 +199,7 @@ final class SessionRecorder: ObservableObject {
         if captureManager.activeSource == .glasses {
             appState?.glassesStatus = .active
             appState?.phoneStatus = .connected
+            startGlassesAudioRouteMonitoring()
         } else {
             appState?.phoneStatus = .active
         }
@@ -207,6 +232,8 @@ final class SessionRecorder: ObservableObject {
         NSLog("[SessionRecorder] stopRecording() called")
         isRecording = false
         appState?.sessionStatus = .stopping
+        audioRouteMonitor?.stop()
+        audioRouteMonitor = nil
 
         // 1. Cancel timer
         timerTask?.cancel()
@@ -247,12 +274,30 @@ final class SessionRecorder: ObservableObject {
         }
 
         // 9. Finish MP4 after pipelines, collectors, and queues have drained
+        let endDate = Date()
+        let duration = endDate.timeIntervalSince(sessionStartTime ?? endDate)
+
         var savedVideoFilename: String? = nil
+        var muxedAudioSamples = 0
         if let recorder = videoRecorder {
+            muxedAudioSamples = recorder.muxedAudioSampleCount
             do {
-                if let _ = try await recorder.finishRecording() {
+                if let videoURL = try await recorder.finishRecording() {
                     savedVideoFilename = NoteVConfig.Storage.sessionVideoFilename
                     NSLog("[SessionRecorder] Session video saved")
+
+                    let asset = AVURLAsset(url: videoURL)
+                    let videoDuration = CMTimeGetSeconds((try? await asset.load(.duration)) ?? .zero)
+                    let audioDuration = (try? await SessionTranscriptExtractor.audioTrackDuration(in: asset)) ?? 0
+                    NSLog("[SessionRecorder] MP4 audio health — muxedSamples: \(muxedAudioSamples), audioTrack: \(String(format: "%.1f", audioDuration))s, video: \(String(format: "%.1f", videoDuration))s, session: \(String(format: "%.1f", duration))s")
+
+                    let minSamples = max(1, Int(duration * 2))
+                    if muxedAudioSamples < minSamples || (videoDuration > 0 && audioDuration < videoDuration * 0.5) {
+                        if appState?.videoRecordingWarning == nil {
+                            appState?.videoRecordingWarning =
+                                "Session audio may be incomplete — transcript recovery could be impaired."
+                        }
+                    }
                 }
             } catch {
                 videoRecordingFailed = true
@@ -269,9 +314,6 @@ final class SessionRecorder: ObservableObject {
                     "Session video could not be saved. Your transcript and captured frames were saved."
             }
         }
-
-        let endDate = Date()
-        let duration = endDate.timeIntervalSince(sessionStartTime ?? endDate)
 
         let metadata = SessionMetadata(
             sessionId: sessionId ?? UUID(),
@@ -365,9 +407,11 @@ final class SessionRecorder: ObservableObject {
 
                 // Update UI on main actor
                 self.appState?.transcriptSegments.append(segment)
+                self.appState?.liveTranscriptStatus = .streaming
                 if self.appState?.liveTranscriptHint != nil {
                     self.appState?.liveTranscriptHint = nil
                 }
+                self.appState?.liveTranscriptWarning = nil
 
                 // Smart bookmark detection — only on final segments
                 if NoteVConfig.SmartBookmark.enabled && segment.isFinal {
@@ -511,5 +555,15 @@ final class SessionRecorder: ObservableObject {
                 self.appState?.elapsedTime = elapsed
             }
         }
+    }
+
+    private func startGlassesAudioRouteMonitoring() {
+        let monitor = AudioRouteMonitor()
+        monitor.onGlassesMicLost = { [weak self] in
+            self?.appState?.audioSourceWarning =
+                "Glasses mic disconnected — audio may be coming from your iPhone. Check that glasses are worn and connected in Meta AI."
+        }
+        monitor.startMonitoringGlassesHFP()
+        audioRouteMonitor = monitor
     }
 }

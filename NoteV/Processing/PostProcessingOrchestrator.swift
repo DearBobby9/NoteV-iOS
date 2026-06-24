@@ -4,6 +4,7 @@ import Foundation
 
 enum PostProcessingStage: String, CaseIterable, Sendable {
     case finalizing
+    case recoveringTranscript
     case extractingFrames
     case polishing
     case analyzingSlides
@@ -13,6 +14,7 @@ enum PostProcessingStage: String, CaseIterable, Sendable {
     var displayName: String {
         switch self {
         case .finalizing: return "Finalizing session…"
+        case .recoveringTranscript: return "Recovering transcript from recording…"
         case .extractingFrames: return "Extracting frames from video…"
         case .polishing: return "Polishing transcript…"
         case .analyzingSlides: return "Analyzing slides…"
@@ -24,6 +26,7 @@ enum PostProcessingStage: String, CaseIterable, Sendable {
     var sessionStatus: SessionStatus {
         switch self {
         case .finalizing: return .finalizing
+        case .recoveringTranscript: return .recoveringTranscript
         case .extractingFrames: return .extractingFrames
         case .polishing: return .polishing
         case .analyzingSlides: return .analyzingSlides
@@ -110,26 +113,29 @@ final class PostProcessingOrchestrator {
                     warnings.append("Live transcription unavailable — will retry from session video")
                 }
 
-            case .extractingFrames:
+            case .recoveringTranscript:
                 if NoteVConfig.TranscriptExtraction.enabled,
                    updatedSession.transcriptSegments.isEmpty {
                     let videoURL = sessionStore.videoURL(for: updatedSession.id)
                     if FileManager.default.fileExists(atPath: videoURL.path) {
+                        let started = Date()
                         do {
                             let transcriptExtractor = SessionTranscriptExtractor()
                             let segments = try await transcriptExtractor.extract(from: videoURL)
                             updatedSession.transcriptSegments = segments
                             appState.currentSession = updatedSession
                             try? sessionStore.save(session: updatedSession)
-                            NSLog("[PostProcessingOrchestrator] MP4 transcript extraction complete — \(segments.count) segments")
+                            let elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
+                            NSLog("[PostProcessingOrchestrator] Transcript recovery complete — \(segments.count) segments in \(elapsedMs)ms")
                             warnings.removeAll { $0.contains("Live transcription unavailable") }
                         } catch {
-                            warnings.append("Video transcription failed — notes will use frames only")
-                            NSLog("[PostProcessingOrchestrator] MP4 transcription failed (non-fatal): \(error.localizedDescription)")
+                            warnings.append("Transcript could not be recovered — notes based on slides only")
+                            NSLog("[PostProcessingOrchestrator] Transcript recovery failed (non-fatal): \(error.localizedDescription)")
                         }
                     }
                 }
 
+            case .extractingFrames:
                 if NoteVConfig.FrameExtraction.enabled,
                    let _ = updatedSession.metadata.videoFilename {
                     let videoURL = sessionStore.videoURL(for: updatedSession.id)

@@ -72,6 +72,36 @@ struct LiveSessionView: View {
                         .padding(.horizontal, NoteVConfig.Design.padding)
                 }
 
+                if let audioWarning = appState.audioSourceWarning {
+                    HStack(spacing: 8) {
+                        Image(systemName: "mic.slash")
+                            .foregroundColor(.orange)
+                        Text(audioWarning)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                    .padding(.horizontal, NoteVConfig.Design.padding)
+                }
+
+                if let transcriptWarning = appState.liveTranscriptWarning {
+                    HStack(spacing: 8) {
+                        Image(systemName: "text.bubble")
+                            .foregroundColor(.orange)
+                        Text(transcriptWarning)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                    .padding(.horizontal, NoteVConfig.Design.padding)
+                }
+
                 // Frame Thumbnail Area
                 FrameThumbnailView()
                     .frame(height: 120)

@@ -10,6 +10,7 @@ enum SessionStatus: Equatable {
     case recording
     case stopping
     case finalizing          // Validating session artifacts after stop
+    case recoveringTranscript // MP4 / audio transcript recovery
     case extractingFrames    // MP4 frame extraction in progress
     case polishing          // Transcript polishing in progress
     case generatingNotes
@@ -20,7 +21,7 @@ enum SessionStatus: Equatable {
 
     var isPostProcessing: Bool {
         switch self {
-        case .finalizing, .extractingFrames, .polishing, .analyzingSlides, .generatingNotes, .extractingTodos:
+        case .finalizing, .recoveringTranscript, .extractingFrames, .polishing, .analyzingSlides, .generatingNotes, .extractingTodos:
             return true
         default:
             return false
@@ -30,6 +31,7 @@ enum SessionStatus: Equatable {
     var processingStageLabel: String? {
         switch self {
         case .finalizing: return PostProcessingStage.finalizing.displayName
+        case .recoveringTranscript: return PostProcessingStage.recoveringTranscript.displayName
         case .extractingFrames: return PostProcessingStage.extractingFrames.displayName
         case .polishing: return PostProcessingStage.polishing.displayName
         case .analyzingSlides: return PostProcessingStage.analyzingSlides.displayName
@@ -89,6 +91,9 @@ final class AppState: ObservableObject {
     @Published var transcriptSegments: [TranscriptSegment] = []
     /// Shown in the live transcript panel when no segments have arrived yet.
     @Published var liveTranscriptHint: String?
+    @Published var liveTranscriptStatus: LiveTranscriptStatus = .idle
+    @Published var liveTranscriptWarning: String?
+    @Published var audioSourceWarning: String?
     @Published var frameCount: Int = 0
     @Published var bookmarkCount: Int = 0
     @Published var elapsedTime: TimeInterval = 0
@@ -143,6 +148,9 @@ final class AppState: ObservableObject {
         currentSession = nil
         generatedNotes = nil
         liveTranscriptHint = nil
+        liveTranscriptStatus = .idle
+        liveTranscriptWarning = nil
+        audioSourceWarning = nil
         transcriptSegments = []
         frameCount = 0
         bookmarkCount = 0
