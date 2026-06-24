@@ -97,9 +97,16 @@ final class SessionRecorder: ObservableObject {
 
         let processor = VisualSampleProcessor()
 
+        appState?.videoRecordingWarning = nil
+
         // Prepare video recording before capture starts (skipped on Simulator)
         #if !targetEnvironment(simulator)
         if NoteVConfig.Video.enabled {
+            if !NoteVConfig.Video.hasSufficientDiskSpace {
+                NSLog("[SessionRecorder] WARNING: Low disk space — skipping video recording")
+                appState?.videoRecordingWarning =
+                    "Low storage space — session video was not recorded. Transcript and frames will still be saved."
+            } else {
             let videoURL = sessionStore.videoURL(for: newSessionId)
             let recorder = VideoRecorder()
             do {
@@ -110,6 +117,7 @@ final class SessionRecorder: ObservableObject {
             } catch {
                 NSLog("[SessionRecorder] WARNING: Could not start video recording: \(error.localizedDescription)")
                 videoRecordingFailed = true
+            }
             }
         }
         #endif
@@ -122,10 +130,11 @@ final class SessionRecorder: ObservableObject {
 
         framePipeline.onSamplingIntervalChanged = { interval in
             processor.setSamplingInterval(interval)
-            if let glassesProvider = provider as? GlassesCaptureProvider {
-                glassesProvider.setSamplingInterval(interval)
-            }
         }
+
+        // Prime AsyncStream continuations before capture delivers samples.
+        let audioStream = provider.audioStream
+        let frameStream = provider.frameStream
 
         // Start capture with user's preferred source
         do {
@@ -164,10 +173,6 @@ final class SessionRecorder: ObservableObject {
             appState?.phoneStatus = .active
         }
         NSLog("[SessionRecorder] Active capture source: \(captureManager.activeSource.rawValue)")
-
-        // Access streams (must be accessed before starting pipelines)
-        let audioStream = provider.audioStream
-        let frameStream = provider.frameStream
 
         // Transcript stream feeds directly to collector (no fork needed — voice bookmark disabled)
         let transcriptStream = audioPipeline.transcriptStream
@@ -229,7 +234,12 @@ final class SessionRecorder: ObservableObject {
         frameCollectorTask = nil
         NSLog("[SessionRecorder] Collector tasks drained")
 
-        // 8. Finish MP4 after pipelines and collectors have drained
+        // 8. Drain processor + recorder queues before finishing MP4
+        if let processor = visualSampleProcessor {
+            await processor.flushAndWait()
+        }
+
+        // 9. Finish MP4 after pipelines, collectors, and queues have drained
         var savedVideoFilename: String? = nil
         if let recorder = videoRecorder {
             do {
@@ -247,6 +257,10 @@ final class SessionRecorder: ObservableObject {
 
         if videoRecordingFailed {
             NSLog("[SessionRecorder] WARNING: Video recording failed — transcript and frames were still saved")
+            if appState?.videoRecordingWarning == nil {
+                appState?.videoRecordingWarning =
+                    "Session video could not be saved. Your transcript and captured frames were saved."
+            }
         }
 
         let endDate = Date()

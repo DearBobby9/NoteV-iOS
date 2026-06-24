@@ -32,6 +32,31 @@ final class VideoPipelineTests: XCTestCase {
         XCTAssertEqual(audioTimestamp, 2.25, accuracy: 0.001)
     }
 
+    func testProcessorThrottlesPeriodicFrames() async {
+        let processor = VisualSampleProcessor()
+        var frames: [TimestampedFrame] = []
+
+        let collectTask = Task {
+            for await frame in processor.frameStream {
+                frames.append(frame)
+                if frames.count >= 2 { break }
+            }
+        }
+
+        let timescale: CMTimeScale = 600
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0, preferredTimescale: timescale)))
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 1, preferredTimescale: timescale)))
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 5, preferredTimescale: timescale)))
+
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        collectTask.cancel()
+
+        XCTAssertEqual(frames.count, 2)
+        XCTAssertEqual(frames[0].timestamp, 0, accuracy: 0.01)
+        XCTAssertEqual(frames[1].timestamp, 5, accuracy: 0.01)
+        XCTAssertFalse(frames[0].imageData?.isEmpty ?? true)
+    }
+
     // MARK: - SessionMetadata videoFilename
 
     func testSessionDataCodableRoundTripWithVideoFilename() throws {
@@ -54,6 +79,40 @@ final class VideoPipelineTests: XCTestCase {
         XCTAssertEqual(decoded.metadata.videoFilename, NoteVConfig.Storage.sessionVideoFilename)
     }
 
+    func testSessionDataDecodesWithoutVideoFilename() throws {
+        let json = """
+        {
+          "metadata": {
+            "sessionId": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+            "startDate": "2026-01-01T12:00:00Z",
+            "captureSource": "phone",
+            "title": "Legacy Session",
+            "durationSeconds": 60
+          },
+          "frames": [],
+          "transcriptSegments": [],
+          "bookmarks": []
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let session = try decoder.decode(SessionData.self, from: Data(json.utf8))
+        XCTAssertNil(session.metadata.videoFilename)
+    }
+
+    func testEnsureSessionDirectoryBeforeRecording() throws {
+        let store = SessionStore()
+        let sessionId = UUID()
+        let sessionDir = store.sessionDirectory(for: sessionId)
+
+        try? FileManager.default.removeItem(at: sessionDir)
+
+        try store.ensureSessionDirectory(for: sessionId)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sessionDir.path))
+
+        try? FileManager.default.removeItem(at: sessionDir)
+    }
+
     // MARK: - VideoRecorder lifecycle
 
     func testVideoRecorderFinishWithoutFramesReturnsNil() async throws {
@@ -68,7 +127,7 @@ final class VideoPipelineTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: tempURL.path))
     }
 
-    func testVideoRecorderRejectsDoubleStart() throws {
+    func testVideoRecorderRejectsDoubleStart() async throws {
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("notev-test-\(UUID().uuidString).mp4")
 
@@ -81,6 +140,29 @@ final class VideoPipelineTests: XCTestCase {
         } catch let error as VideoRecorder.VideoRecorderError {
             XCTAssertEqual(error.errorDescription, "Video recording already in progress")
         }
+
+        _ = try await recorder.finishRecording()
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    func testVideoRecorderWritesVideoFrame() async throws {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notev-test-\(UUID().uuidString).mp4")
+
+        let recorder = VideoRecorder()
+        try recorder.startRecording(to: tempURL)
+
+        let buffer = makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0, preferredTimescale: 600))
+        recorder.appendVideo(buffer)
+
+        // Allow async append on recorder queue.
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        let result = try await recorder.finishRecording()
+        XCTAssertNotNil(result)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
+
+        try? FileManager.default.removeItem(at: tempURL)
     }
 
     // MARK: - SessionStore
@@ -96,40 +178,93 @@ final class VideoPipelineTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeSampleBuffer(presentationTime: CMTime, mediaType: AVMediaType) -> CMSampleBuffer {
-        var formatDescription: CMFormatDescription?
-        if mediaType == .video {
-            CMVideoFormatDescriptionCreate(
-                allocator: kCFAllocatorDefault,
-                codecType: kCVPixelFormatType_32BGRA,
-                width: 64,
-                height: 64,
-                extensions: nil,
-                formatDescriptionOut: &formatDescription
-            )
-        } else {
-            var asbd = AudioStreamBasicDescription(
-                mSampleRate: 44100,
-                mFormatID: kAudioFormatLinearPCM,
-                mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
-                mBytesPerPacket: 2,
-                mFramesPerPacket: 1,
-                mBytesPerFrame: 2,
-                mChannelsPerFrame: 1,
-                mBitsPerChannel: 16,
-                mReserved: 0
-            )
-            CMAudioFormatDescriptionCreate(
-                allocator: kCFAllocatorDefault,
-                asbd: &asbd,
-                layoutSize: 0,
-                layout: nil,
-                magicCookieSize: 0,
-                magicCookie: nil,
-                extensions: nil,
-                formatDescriptionOut: &formatDescription
-            )
+    private func makeVideoSampleBuffer(presentationTime: CMTime) -> CMSampleBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+        ]
+        CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            64,
+            64,
+            kCVPixelFormatType_32BGRA,
+            attrs as CFDictionary,
+            &pixelBuffer
+        )
+
+        guard let pixelBuffer else {
+            fatalError("Failed to create pixel buffer")
         }
+
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        if let base = CVPixelBufferGetBaseAddress(pixelBuffer) {
+            memset(base, 0xFF, CVPixelBufferGetDataSize(pixelBuffer))
+        }
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+
+        var formatDescription: CMFormatDescription?
+        CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            formatDescriptionOut: &formatDescription
+        )
+
+        guard let formatDescription else {
+            fatalError("Failed to create format description")
+        }
+
+        var timing = CMSampleTimingInfo(
+            duration: CMTime(value: 1, timescale: 30),
+            presentationTimeStamp: presentationTime,
+            decodeTimeStamp: .invalid
+        )
+
+        var sampleBuffer: CMSampleBuffer?
+        CMSampleBufferCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: formatDescription,
+            sampleTiming: &timing,
+            sampleBufferOut: &sampleBuffer
+        )
+
+        guard let sampleBuffer else {
+            fatalError("Failed to create sample buffer")
+        }
+        return sampleBuffer
+    }
+
+    private func makeSampleBuffer(presentationTime: CMTime, mediaType: AVMediaType) -> CMSampleBuffer {
+        if mediaType == .video {
+            return makeVideoSampleBuffer(presentationTime: presentationTime)
+        }
+
+        var formatDescription: CMFormatDescription?
+        var asbd = AudioStreamBasicDescription(
+            mSampleRate: 44100,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 2,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 2,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 16,
+            mReserved: 0
+        )
+        CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &asbd,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &formatDescription
+        )
 
         guard let formatDescription else {
             fatalError("Failed to create format description")

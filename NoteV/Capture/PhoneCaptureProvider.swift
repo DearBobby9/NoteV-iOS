@@ -90,9 +90,9 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
             captureSession.addOutput(videoOutput)
         }
 
-        // Lock video orientation to portrait so pixel buffers arrive upright
+        // Portrait upright — use rotation angle API (videoOrientation is deprecated).
         if let connection = videoOutput.connection(with: .video) {
-            connection.videoOrientation = .portrait
+            setPortraitRotation(on: connection)
         }
 
         // Photo output — for bookmark high-res capture
@@ -102,7 +102,7 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
         // Also lock photo output to portrait
         if let photoConnection = photoOutput.connection(with: .video) {
-            photoConnection.videoOrientation = .portrait
+            setPortraitRotation(on: photoConnection)
         }
 
         audioOutput.setSampleBufferDelegate(self, queue: audioQueue)
@@ -112,6 +112,13 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
         captureSession.commitConfiguration()
         NSLog("[PhoneCaptureProvider] AVCaptureSession configured — camera + photo + audio output ready")
+    }
+
+    private func setPortraitRotation(on connection: AVCaptureConnection) {
+        let portraitAngle: CGFloat = 90
+        if connection.isVideoRotationAngleSupported(portraitAngle) {
+            connection.videoRotationAngle = portraitAngle
+        }
     }
 
     private func configureCameraFrameRate(_ device: AVCaptureDevice) {

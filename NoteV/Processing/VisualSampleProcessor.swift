@@ -46,10 +46,20 @@ final class VisualSampleProcessor: @unchecked Sendable {
     }
 
     func finishFrames() {
-        queue.async { [weak self] in
-            self?.frameContinuation?.finish()
-            self?.frameContinuation = nil
+        queue.sync {
+            frameContinuation?.finish()
+            frameContinuation = nil
         }
+    }
+
+    /// Drains the processor queue, then waits for any in-flight recorder appends.
+    func flushAndWait() async {
+        let recorder = await withCheckedContinuation { (continuation: CheckedContinuation<VideoRecorder?, Never>) in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.videoRecorder)
+            }
+        }
+        await recorder?.waitForPendingAppends()
     }
 
     // MARK: - Ingress
