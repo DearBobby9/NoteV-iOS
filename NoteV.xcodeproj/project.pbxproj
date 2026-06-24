@@ -44,6 +44,9 @@
         V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */; };
 		F1C2H3A4N5G6E7D8E9T0O1R2 /* FrameChangeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C2H3A4N5G6E7D8E9T0O1R1 /* FrameChangeDetector.swift */; };
 		A1U2D3I4O5S6A7M8P9L0E1F2 /* AudioSampleBufferFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1U2D3I4O5S6A7M8P9L0E1F1 /* AudioSampleBufferFactory.swift */; };
+		A1U2D3I4O5S6T7R8E9E0M1U2X3 /* AudioStreamTee.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1U2D3I4O5S6T7R8E9E0M1U2X2 /* AudioStreamTee.swift */; };
+		A1U2D3I4O5R6E7S8A9M0P1L2E3 /* AudioResampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1U2D3I4O5R6E7S8A9M0P1L2E2 /* AudioResampler.swift */; };
+		S1A2M3P4L5E6B7U8F9F0E1R2 /* SampleBufferRetimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1A2M3P4L5E6B7U8F9F0E1R1 /* SampleBufferRetimestamp.swift */; };
 		T1R2A3N4S5D6E7N8S9I0T1Y2 /* TranscriptDensityAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */; };
 		E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */; };
 		S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */; };
@@ -55,6 +58,7 @@
 		P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */; };
 		P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */; };
 		V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */; };
+		A1U2D3I4O5S6T7R8E9E0T1E2E3 /* AudioStreamTeeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1U2D3I4O5S6T7R8E9E0T1E2E2 /* AudioStreamTeeTests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* PolishedTranscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */; };
 		A203C5DE2F508C3E0BE37EAE /* MultimodalNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */; };
 		A6356672B6E892B616ED3DDA /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26DAD1046D1D475A4C38DFC6 /* PromptBuilder.swift */; };
@@ -168,6 +172,9 @@
 		V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecorder.swift; sourceTree = "<group>"; };
 		F1C2H3A4N5G6E7D8E9T0O1R1 /* FrameChangeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameChangeDetector.swift; sourceTree = "<group>"; };
 		A1U2D3I4O5S6A7M8P9L0E1F1 /* AudioSampleBufferFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSampleBufferFactory.swift; sourceTree = "<group>"; };
+		A1U2D3I4O5S6T7R8E9E0M1U2X2 /* AudioStreamTee.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamTee.swift; sourceTree = "<group>"; };
+		A1U2D3I4O5R6E7S8A9M0P1L2E2 /* AudioResampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResampler.swift; sourceTree = "<group>"; };
+		S1A2M3P4L5E6B7U8F9F0E1R1 /* SampleBufferRetimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleBufferRetimestamp.swift; sourceTree = "<group>"; };
 		T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDensityAnalyzer.swift; sourceTree = "<group>"; };
 		E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractionTimestampPlanner.swift; sourceTree = "<group>"; };
 		S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFrameExtractor.swift; sourceTree = "<group>"; };
@@ -179,6 +186,7 @@
 		P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingStageBanner.swift; sourceTree = "<group>"; };
 		P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostProcessingOrchestratorTests.swift; sourceTree = "<group>"; };
 		V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPipelineTests.swift; sourceTree = "<group>"; };
+		A1U2D3I4O5S6T7R8E9E0T1E2E2 /* AudioStreamTeeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamTeeTests.swift; sourceTree = "<group>"; };
 		B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSyncService.swift; sourceTree = "<group>"; };
 		BA985C033FF1B493D35EDD10 /* TodoExtractionPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoExtractionPromptBuilder.swift; sourceTree = "<group>"; };
 		BFAD7E6334C6D2841D53CB3C /* SessionData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionData.swift; sourceTree = "<group>"; };
@@ -222,6 +230,9 @@
 			children = (
 				17A8C997D3CAC3B40BF2D225 /* AudioPipeline.swift */,
 				A1U2D3I4O5S6A7M8P9L0E1F1 /* AudioSampleBufferFactory.swift */,
+				A1U2D3I4O5S6T7R8E9E0M1U2X2 /* AudioStreamTee.swift */,
+				A1U2D3I4O5R6E7S8A9M0P1L2E2 /* AudioResampler.swift */,
+				S1A2M3P4L5E6B7U8F9F0E1R1 /* SampleBufferRetimestamp.swift */,
 				3B5319932E7050917D0E212B /* BookmarkDetector.swift */,
 				AA11BB22CC33DD44EE55FF06 /* CourseDetector.swift */,
 				AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */,
@@ -268,6 +279,7 @@
 				S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */,
 				S1E2S3S4T5R6A7N8S9C0T1E0 /* SessionTranscriptExtractorTests.swift */,
 				V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */,
+				A1U2D3I4O5S6T7R8E9E0T1E2E2 /* AudioStreamTeeTests.swift */,
 			);
 			path = NoteVTests;
 			sourceTree = "<group>";
@@ -562,6 +574,9 @@
 				P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */,
 				F1C2H3A4N5G6E7D8E9T0O1R2 /* FrameChangeDetector.swift in Sources */,
 				A1U2D3I4O5S6A7M8P9L0E1F2 /* AudioSampleBufferFactory.swift in Sources */,
+				A1U2D3I4O5S6T7R8E9E0M1U2X3 /* AudioStreamTee.swift in Sources */,
+				A1U2D3I4O5R6E7S8A9M0P1L2E3 /* AudioResampler.swift in Sources */,
+				S1A2M3P4L5E6B7U8F9F0E1R2 /* SampleBufferRetimestamp.swift in Sources */,
 				E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */,
 				S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */,
 				S1E2S3S4T5R6A7N8S9C0R1E2 /* SessionTranscriptExtractor.swift in Sources */,
@@ -612,6 +627,7 @@
 			files = (
 				CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */,
 				V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */,
+				A1U2D3I4O5S6T7R8E9E0T1E2E3 /* AudioStreamTeeTests.swift in Sources */,
 				P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */,
 				S1E2S3S4F4R5A6M7E8X9T0R1 /* SessionFrameExtractorTests.swift in Sources */,
 				S1E2S3S4T5R6A7N8S9C0T1E1 /* SessionTranscriptExtractorTests.swift in Sources */,

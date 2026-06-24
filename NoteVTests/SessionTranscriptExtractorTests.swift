@@ -73,6 +73,22 @@ final class SessionTranscriptExtractorTests: XCTestCase {
         )
     }
 
+    func testReferenceDurationIgnoresCorruptContainerVideoDuration() {
+        let reference = SessionTranscriptExtractor.referenceDurationForValidation(
+            audioDuration: 9.7,
+            containerVideoDuration: 74_586
+        )
+        XCTAssertEqual(reference, 9.7, accuracy: 0.01)
+    }
+
+    func testValidateAudioPayloadAcceptsWhenContainerDurationInflated() throws {
+        try SessionTranscriptExtractor.validateAudioPayload(
+            data: Data(repeating: 0, count: 4096),
+            audioDuration: 9.7,
+            videoDuration: 74_586
+        )
+    }
+
     func testWrapPCMAsWAVProducesValidHeader() {
         let pcm = Data(repeating: 0, count: 3200)
         let wav = SessionTranscriptExtractor.wrapPCMAsWAV(pcmData: pcm, sampleRate: 16_000, channels: 1)

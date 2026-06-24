@@ -20,8 +20,8 @@ final class CaptureManager: ObservableObject {
     @Published private(set) var connectedDevices: [DeviceIdentifier] = []
     @Published var glassesError: String?
 
-    private let glassesProvider: GlassesCaptureProvider
-    private let phoneProvider: PhoneCaptureProvider
+    private var glassesProvider: GlassesCaptureProvider
+    private var phoneProvider: PhoneCaptureProvider
     private let wearables: WearablesInterface
 
     private var registrationTask: Task<Void, Never>?
@@ -138,6 +138,25 @@ final class CaptureManager: ObservableObject {
 
     func dismissGlassesError() {
         glassesError = nil
+    }
+
+    /// Recreates capture providers with fresh AsyncStreams while keeping registration/device state.
+    func resetProvidersForNewSession() {
+        glassesProvider = GlassesCaptureProvider(wearables: wearables)
+        phoneProvider = PhoneCaptureProvider()
+        activeProvider = nil
+        activeSource = .phone
+    }
+
+    /// Ensures Meta AI camera permission is granted before starting a glasses session.
+    func ensureGlassesCameraPermission() async throws {
+        guard !connectedDevices.isEmpty else {
+            throw GlassesCaptureProvider.makeError(
+                code: -11,
+                message: "Glasses aren't connected. Open Meta AI, confirm your glasses are paired, then try again."
+            )
+        }
+        try await glassesProvider.ensureCameraPermission()
     }
 
     // MARK: - Provider Selection

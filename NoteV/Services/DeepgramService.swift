@@ -60,7 +60,11 @@ actor DeepgramService {
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
         config.timeoutIntervalForRequest = 60
-        config.multipathServiceType = .handover
+        config.allowsCellularAccess = true
+        config.allowsExpensiveNetworkAccess = true
+        config.allowsConstrainedNetworkAccess = true
+        // Multipath handover caused socket drops on LTE-only paths in device testing.
+        config.multipathServiceType = .none
         return URLSession(configuration: config)
     }()
     private let session = streamingSession
@@ -151,18 +155,34 @@ actor DeepgramService {
 
         startReceiveLoop()
         startKeepAliveTimer()
+        sendTextMessage("{\"type\": \"KeepAlive\"}")
 
-        // Do not send audio until Metadata confirms the connection is ready (critical on LTE).
         let timeoutNs = UInt64(NoteVConfig.Audio.deepgramMetadataTimeoutSeconds * 1_000_000_000)
-        try await waitForMetadataReady(timeoutNanoseconds: timeoutNs)
-        guard hasReceivedMetadata else {
-            throw DeepgramError.connectionFailed("Deepgram Metadata was not received")
+        let optimisticNs = UInt64(NoteVConfig.Audio.deepgramOptimisticConnectSeconds * 1_000_000_000)
+        try await waitUntilReady(
+            metadataTimeoutNanoseconds: timeoutNs,
+            optimisticAfterNanoseconds: optimisticNs
+        )
+
+        if receiveLoopEnded, webSocketTask != nil {
+            NSLog("[DeepgramService] Receive loop ended — restarting")
+            receiveLoopEnded = false
+            startReceiveLoop()
         }
-        guard !receiveLoopEnded, webSocketTask != nil else {
-            throw DeepgramError.connectionFailed("WebSocket closed after Metadata")
+
+        guard webSocketTask != nil else {
+            throw DeepgramError.connectionFailed("WebSocket closed before streaming")
         }
-        isConnected = true
-        NSLog("[DeepgramService] Connection ready — Metadata received")
+
+        if !isConnected {
+            isConnected = true
+        }
+
+        if hasReceivedMetadata {
+            NSLog("[DeepgramService] Connection ready — Metadata received")
+        } else {
+            NSLog("[DeepgramService] Connection ready — optimistic streaming (LTE, no Metadata yet)")
+        }
     }
 
     // MARK: - Send Audio
@@ -301,6 +321,8 @@ actor DeepgramService {
                 NSLog("[DeepgramService] Metadata received — connection confirmed")
                 hasReceivedMetadata = true
                 connectionLostBeforeReady = false
+                // Unblock sendAudio as soon as Metadata arrives (connect() may still be waiting).
+                isConnected = true
             case "UtteranceEnd":
                 NSLog("[DeepgramService] UtteranceEnd received")
             case "SpeechStarted":
@@ -347,14 +369,14 @@ actor DeepgramService {
     private func startKeepAliveTimer() {
         keepAliveTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
                 guard let self = self else { break }
-                guard await self.isConnected else { break }
+                guard await self.webSocketTask != nil else { break }
 
                 let idleTime = await Date().timeIntervalSince(self.lastAudioSendTime)
-                if idleTime >= 4.0 {
+                if idleTime >= 3.5 {
                     await self.sendTextMessageChecked("{\"type\": \"KeepAlive\"}")
-                    NSLog("[DeepgramService] KeepAlive sent (idle \(String(format: "%.1f", idleTime))s)")
+                    NSLog("[DeepgramService] KeepAlive sent (idle \(String(format: "%.1f", idleTime))s, connected: \(await self.isConnected))")
                 }
             }
         }
@@ -392,7 +414,6 @@ actor DeepgramService {
             return
         }
 
-        guard isConnected else { return }
         NSLog("[DeepgramService] Connection lost — \(reason)")
         isConnected = false
 
@@ -405,21 +426,30 @@ actor DeepgramService {
         disconnectContinuation = nil
     }
 
-    private func waitForMetadataReady(timeoutNanoseconds: UInt64) async throws {
-        if hasReceivedMetadata { return }
+    private func waitUntilReady(
+        metadataTimeoutNanoseconds: UInt64,
+        optimisticAfterNanoseconds: UInt64
+    ) async throws {
+        if hasReceivedMetadata || isConnected { return }
 
         let pollInterval: UInt64 = 50_000_000
         var elapsed: UInt64 = 0
 
-        while elapsed < timeoutNanoseconds {
+        while elapsed < metadataTimeoutNanoseconds {
             if hasReceivedMetadata { return }
-            // Keep waiting after transient socket errors — Metadata often arrives after LTE hiccups.
+
+            if elapsed >= optimisticAfterNanoseconds, webSocketTask != nil {
+                isConnected = true
+                NSLog("[DeepgramService] Optimistic streaming after \(NoteVConfig.Audio.deepgramOptimisticConnectSeconds)s — Metadata not received (LTE)")
+                return
+            }
+
             try await Task.sleep(nanoseconds: pollInterval)
             elapsed += pollInterval
         }
 
-        if hasReceivedMetadata { return }
-        throw DeepgramError.connectionFailed("Timed out waiting for Deepgram Metadata")
+        if hasReceivedMetadata || isConnected { return }
+        throw DeepgramError.connectionFailed("Timed out waiting for Deepgram connection")
     }
 
     private func waitForDisconnectSignal() async {

@@ -28,13 +28,15 @@ enum NoteVConfig {
         static let deepgramModel: String = "nova-3"
         /// Seconds to wait for Deepgram WebSocket Metadata on slow networks (LTE)
         static let deepgramMetadataTimeoutSeconds: TimeInterval = 30
+        /// On LTE, Metadata may never arrive; start sending audio after this delay if socket is open
+        static let deepgramOptimisticConnectSeconds: TimeInterval = 3
         /// Max audio chunks buffered while Deepgram connects in parallel (~30s of speech)
         static let deepgramConnectBufferMaxChunks: Int = 600
         /// Mid-session WebSocket reconnect attempts after initial connect dies (LTE)
         static let deepgramMidSessionReconnectMax: Int = 2
         /// Audio sample rate in Hz (Deepgram STT)
         static let sampleRate: Int = 16_000
-        /// Sample rate for MP4 audio mux (must match VideoRecorder AAC track)
+        /// MP4 AAC encoder target (resampled once at mux from the single PCM stream).
         static let muxSampleRate: Int = 48_000
         /// Audio bit depth
         static let bitDepth: Int = 16

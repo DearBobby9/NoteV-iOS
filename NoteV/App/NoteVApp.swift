@@ -46,6 +46,7 @@ struct NoteVApp: App {
             .preferredColorScheme(.dark)
             .task {
                 sessionRecorder.setAppState(appState)
+                sessionRecorder.setCaptureManager(captureManager)
             }
             // Meta sample pattern: handle DAT callbacks at the root scene, not inside nested views.
             .onOpenURL { url in

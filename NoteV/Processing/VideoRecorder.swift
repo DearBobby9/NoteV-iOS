@@ -57,7 +57,7 @@ final class VideoRecorder: @unchecked Sendable {
             // Audio track must exist before startWriting() — video samples usually arrive first.
             let audioSettings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48_000,
+                AVSampleRateKey: NoteVConfig.Audio.muxSampleRate,
                 AVNumberOfChannelsKey: 1,
                 AVEncoderBitRateKey: 128_000
             ]
@@ -68,7 +68,7 @@ final class VideoRecorder: @unchecked Sendable {
             }
             writer.add(audioIn)
             audioInput = audioIn
-            NSLog("[VideoRecorder] Audio track pre-configured — 48000Hz 1ch AAC")
+            NSLog("[VideoRecorder] Audio track pre-configured — \(NoteVConfig.Audio.muxSampleRate)Hz 1ch AAC")
 
             NSLog("[VideoRecorder] Started — output: \(url.lastPathComponent)")
         }

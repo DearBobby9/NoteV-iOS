@@ -35,6 +35,8 @@ final class AudioPipeline {
     // Deepgram transcript bridge task
     private var deepgramBridgeTask: Task<Void, Never>?
     private var deepgramConnectTask: Task<DeepgramService?, Never>?
+    private var earlyConnectTask: Task<DeepgramService?, Never>?
+    private var earlyConnectCoordinator: DeepgramFeedCoordinator?
 
     /// Eagerly initialized transcript stream (thread-safe, no lazy var hazard)
     let transcriptStream: AsyncStream<TranscriptSegment>
@@ -55,6 +57,27 @@ final class AudioPipeline {
 
     // MARK: - Processing
 
+    /// Begin Deepgram WebSocket connect early (e.g. during glasses HFP/DAT setup).
+    func prepareDeepgramConnection() {
+        guard NoteVConfig.Audio.sttProvider == .deepgram else { return }
+        guard deepgramConnectTask == nil else { return }
+
+        guard APIKeys.isDeepgramConfigured else {
+            NSLog("[AudioPipeline] ERROR: Deepgram API key not configured — live STT unavailable")
+            reportLiveStatus(.unavailable)
+            return
+        }
+
+        let coordinator = DeepgramFeedCoordinator()
+        earlyConnectCoordinator = coordinator
+        reportLiveStatus(.connecting)
+
+        let task = makeDeepgramConnectTask(coordinator: coordinator)
+        deepgramConnectTask = task
+        earlyConnectTask = task
+        NSLog("[AudioPipeline] Deepgram pre-connect started")
+    }
+
     /// Start processing audio chunks from the given stream.
     func startProcessing(audioStream: AsyncStream<AudioChunk>) async {
         NSLog("[AudioPipeline] startProcessing() called — provider: \(NoteVConfig.Audio.sttProvider.rawValue)")
@@ -74,8 +97,7 @@ final class AudioPipeline {
     func endAudioInput() {
         NSLog("[AudioPipeline] endAudioInput() called — provider: \(NoteVConfig.Audio.sttProvider.rawValue)")
         isProcessing = false
-        deepgramConnectTask?.cancel()
-        deepgramConnectTask = nil
+        // Do not cancel deepgramConnectTask — LTE Metadata can arrive late; let connect finish during drain.
 
         switch NoteVConfig.Audio.sttProvider {
         case .appleSpeech:
@@ -124,6 +146,8 @@ final class AudioPipeline {
         case .deepgram:
             deepgramBridgeTask?.cancel()
             deepgramBridgeTask = nil
+            deepgramConnectTask?.cancel()
+            deepgramConnectTask = nil
             if let service = deepgramService {
                 await service.disconnect()
             }
@@ -143,18 +167,19 @@ final class AudioPipeline {
     // MARK: - Deepgram Processing
 
     private func startDeepgramProcessing(audioStream: AsyncStream<AudioChunk>) async {
-        let coordinator = DeepgramFeedCoordinator()
+        let coordinator = earlyConnectCoordinator ?? DeepgramFeedCoordinator()
+        earlyConnectCoordinator = nil
         var midSessionReconnects = 0
         var liveUnavailable = false
 
-        reportLiveStatus(.connecting)
-
-        let connectTask = Task { [weak self] () -> DeepgramService? in
-            guard let self else { return nil }
-            guard await self.connectDeepgramWithRetry(maxAttempts: 3, coordinator: coordinator) else { return nil }
-            return self.deepgramService
+        if deepgramConnectTask == nil {
+            reportLiveStatus(.connecting)
+            let connectTask = makeDeepgramConnectTask(coordinator: coordinator)
+            deepgramConnectTask = connectTask
+            earlyConnectTask = connectTask
         }
-        deepgramConnectTask = connectTask
+
+        let connectTask = await resolveDeepgramConnectTask(fallbackCoordinator: coordinator)
 
         for await chunk in audioStream {
             guard isProcessing else { break }
@@ -285,22 +310,51 @@ final class AudioPipeline {
         return true
     }
 
+    private func makeDeepgramConnectTask(coordinator: DeepgramFeedCoordinator) -> Task<DeepgramService?, Never> {
+        Task { [weak self] () -> DeepgramService? in
+            guard let self else { return nil }
+            guard await self.connectDeepgramWithRetry(maxAttempts: 3, coordinator: coordinator) else { return nil }
+            return self.deepgramService
+        }
+    }
+
+    /// Reuses an in-flight pre-connect task, or starts a fresh one if pre-connect already failed.
+    private func resolveDeepgramConnectTask(fallbackCoordinator: DeepgramFeedCoordinator) async -> Task<DeepgramService?, Never> {
+        if let existing = earlyConnectTask ?? deepgramConnectTask {
+            earlyConnectTask = nil
+            if await existing.value == nil, deepgramService == nil {
+                NSLog("[AudioPipeline] Deepgram pre-connect failed — starting fresh connect")
+                reportLiveStatus(.connecting)
+                let retry = makeDeepgramConnectTask(coordinator: fallbackCoordinator)
+                deepgramConnectTask = retry
+                return retry
+            }
+            return existing
+        }
+
+        reportLiveStatus(.connecting)
+        let task = makeDeepgramConnectTask(coordinator: fallbackCoordinator)
+        deepgramConnectTask = task
+        return task
+    }
+
     private func connectDeepgramWithRetry(maxAttempts: Int, coordinator: DeepgramFeedCoordinator) async -> Bool {
         for attempt in 1...maxAttempts {
-            if Task.isCancelled || !isProcessing { return false }
+            if Task.isCancelled { return false }
             let service = DeepgramService()
             deepgramService = service
+            coordinator.setService(service)
 
             do {
                 try await service.connect()
                 await service.setOnConnectionLost { reason in
                     NSLog("[AudioPipeline] Deepgram connection lost callback: \(reason)")
                 }
-                coordinator.setService(service)
                 NSLog("[AudioPipeline] Deepgram connected — streaming audio (attempt \(attempt))")
                 return true
             } catch {
                 NSLog("[AudioPipeline] ERROR: Deepgram connect failed (attempt \(attempt)): \(error.localizedDescription)")
+                coordinator.setService(nil)
                 await service.disconnect()
                 deepgramService = nil
                 if attempt < maxAttempts {

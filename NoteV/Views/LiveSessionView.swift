@@ -193,7 +193,7 @@ struct LiveSessionView: View {
 
             appState.currentSession = session
             appState.processingWarnings = []
-            appState.sessionStatus = .polishing
+            appState.sessionStatus = .finalizing
 
             // Navigate to session result
             appState.navigationPath.append(NavigationDestination.sessionResult)

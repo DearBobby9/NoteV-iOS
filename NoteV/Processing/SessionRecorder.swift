@@ -27,6 +27,7 @@ final class SessionRecorder: ObservableObject {
     private let sessionStore = SessionStore()
 
     private weak var appState: AppState?
+    private weak var sharedCaptureManager: CaptureManager?
 
     @Published private(set) var isRecording = false
     private var sessionStartTime: Date?
@@ -44,6 +45,7 @@ final class SessionRecorder: ObservableObject {
 
     // Background tasks
     private var audioPipelineTask: Task<Void, Never>?
+    private var audioMuxTask: Task<Void, Never>?
     private var framePipelineTask: Task<Void, Never>?
     private var transcriptCollectorTask: Task<Void, Never>?
     private var frameCollectorTask: Task<Void, Never>?
@@ -67,6 +69,11 @@ final class SessionRecorder: ObservableObject {
         self.appState = state
     }
 
+    /// Use the app-wide CaptureManager so device registration/connection state matches the UI.
+    func setCaptureManager(_ manager: CaptureManager) {
+        self.sharedCaptureManager = manager
+    }
+
     // MARK: - Recording Lifecycle
 
     /// Start a new recording session with the user's preferred capture source.
@@ -86,8 +93,17 @@ final class SessionRecorder: ObservableObject {
         autoBookmarkCount = 0
         smartDetector.reset()
 
-        // Create fresh pipeline instances (AsyncStream lazy vars are one-time-use)
-        captureManager = CaptureManager()
+        // Fresh pipeline instances each session (AsyncStream lazy vars are one-time-use).
+        // Reuse the app CaptureManager so glasses device/permission state matches the UI.
+        guard let captureManager = sharedCaptureManager else {
+            throw NSError(
+                domain: "SessionRecorder",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Capture manager not configured"]
+            )
+        }
+        captureManager.resetProvidersForNewSession()
+        self.captureManager = captureManager
         audioPipeline = AudioPipeline()
         framePipeline = FramePipeline()
 
@@ -166,12 +182,18 @@ final class SessionRecorder: ObservableObject {
             }
         }
 
+        // Pre-connect Deepgram while glasses HFP + DAT stream spin up (~5–15s head start on LTE).
+        if NoteVConfig.Audio.sttProvider == .deepgram {
+            audioPipeline.prepareDeepgramConnection()
+        }
+
         // Start capture with user's preferred source
         do {
             try await captureManager.startCapture(preferredSource: preferredSource)
         } catch {
-            // [P2 fix] Roll back state on failure
+            // Roll back state on failure
             NSLog("[SessionRecorder] ERROR: startCapture failed — rolling back state")
+            audioPipeline?.stop()
             if let recorder = videoRecorder {
                 _ = try? await recorder.finishRecording()
                 videoRecorder = nil
@@ -205,13 +227,20 @@ final class SessionRecorder: ObservableObject {
         }
         NSLog("[SessionRecorder] Active capture source: \(captureManager.activeSource.rawValue)")
 
+        // Single audio stream → STT + MP4 mux (no duplicate capture paths).
+        let (sttAudioStream, muxAudioStream) = AudioStreamTee.tee(audioStream)
+
         // Transcript stream feeds directly to collector (no fork needed — voice bookmark disabled)
         let transcriptStream = audioPipeline.transcriptStream
 
         // Start pipelines as concurrent tasks
         audioPipelineTask = Task.detached { [audioPipeline] in
             guard let pipeline = audioPipeline else { return }
-            await pipeline.startProcessing(audioStream: audioStream)
+            await pipeline.startProcessing(audioStream: sttAudioStream)
+        }
+
+        if NoteVConfig.Video.enabled, visualSampleProcessor != nil {
+            startAudioMuxCollector(stream: muxAudioStream, processor: processor)
         }
 
         framePipelineTask = Task.detached { [framePipeline] in
@@ -249,6 +278,8 @@ final class SessionRecorder: ObservableObject {
         framePipelineTask = nil
         await audioPipelineTask?.value
         audioPipelineTask = nil
+        await audioMuxTask?.value
+        audioMuxTask = nil
 
         // 4. Signal recognition engine to produce final result (endAudio, not cancel)
         audioPipeline.endAudioInput()
@@ -287,12 +318,16 @@ final class SessionRecorder: ObservableObject {
                     NSLog("[SessionRecorder] Session video saved")
 
                     let asset = AVURLAsset(url: videoURL)
-                    let videoDuration = CMTimeGetSeconds((try? await asset.load(.duration)) ?? .zero)
+                    let containerDuration = CMTimeGetSeconds((try? await asset.load(.duration)) ?? .zero)
                     let audioDuration = (try? await SessionTranscriptExtractor.audioTrackDuration(in: asset)) ?? 0
-                    NSLog("[SessionRecorder] MP4 audio health — muxedSamples: \(muxedAudioSamples), audioTrack: \(String(format: "%.1f", audioDuration))s, video: \(String(format: "%.1f", videoDuration))s, session: \(String(format: "%.1f", duration))s")
+                    let effectiveVideoDuration = SessionTranscriptExtractor.referenceDurationForValidation(
+                        audioDuration: audioDuration,
+                        containerVideoDuration: containerDuration
+                    )
+                    NSLog("[SessionRecorder] MP4 audio health — muxedSamples: \(muxedAudioSamples), audioTrack: \(String(format: "%.1f", audioDuration))s, video: \(String(format: "%.1f", effectiveVideoDuration))s, session: \(String(format: "%.1f", duration))s")
 
                     let minSamples = max(1, Int(duration * 2))
-                    if muxedAudioSamples < minSamples || (videoDuration > 0 && audioDuration < videoDuration * 0.5) {
+                    if muxedAudioSamples < minSamples || (effectiveVideoDuration > 0 && audioDuration < effectiveVideoDuration * 0.5) {
                         if appState?.videoRecordingWarning == nil {
                             appState?.videoRecordingWarning =
                                 "Session audio may be incomplete — transcript recovery could be impaired."
@@ -399,6 +434,21 @@ final class SessionRecorder: ObservableObject {
 
     // MARK: - Collector Tasks
 
+    private func startAudioMuxCollector(stream: AsyncStream<AudioChunk>, processor: VisualSampleProcessor) {
+        audioMuxTask = Task {
+            let sourceRate = Double(NoteVConfig.Audio.sampleRate)
+            let muxRate = Double(NoteVConfig.Audio.muxSampleRate)
+            for await chunk in stream {
+                let muxData = AudioResampler.resamplePCM16Mono(chunk.data, from: sourceRate, to: muxRate) ?? chunk.data
+                processor.processAudioPCM(
+                    data: muxData,
+                    sessionRelativeTime: chunk.timestamp,
+                    sampleRate: muxRate
+                )
+            }
+        }
+    }
+
     private func startTranscriptCollector(stream: AsyncStream<TranscriptSegment>) {
         transcriptCollectorTask = Task { [weak self] in
             for await segment in stream {
@@ -407,11 +457,11 @@ final class SessionRecorder: ObservableObject {
 
                 // Update UI on main actor
                 self.appState?.transcriptSegments.append(segment)
-                self.appState?.liveTranscriptStatus = .streaming
-                if self.appState?.liveTranscriptHint != nil {
+                if self.appState?.liveTranscriptStatus != .unavailable {
+                    self.appState?.liveTranscriptStatus = .streaming
                     self.appState?.liveTranscriptHint = nil
+                    self.appState?.liveTranscriptWarning = nil
                 }
-                self.appState?.liveTranscriptWarning = nil
 
                 // Smart bookmark detection — only on final segments
                 if NoteVConfig.SmartBookmark.enabled && segment.isFinal {

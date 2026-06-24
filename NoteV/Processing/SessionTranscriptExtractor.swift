@@ -213,13 +213,28 @@ final class SessionTranscriptExtractor {
 
     // MARK: - Validation helpers (testable)
 
+    static func referenceDurationForValidation(audioDuration: TimeInterval, containerVideoDuration: TimeInterval) -> TimeInterval {
+        guard containerVideoDuration > 0, audioDuration > 0 else {
+            return containerVideoDuration
+        }
+        // Glasses DAT frames can carry absolute PTS, inflating container duration vs audio.
+        if containerVideoDuration > audioDuration * 4 {
+            return audioDuration
+        }
+        return containerVideoDuration
+    }
+
     static func validateAudioPayload(data: Data, audioDuration: TimeInterval, videoDuration: TimeInterval) throws {
         guard data.count >= NoteVConfig.TranscriptExtraction.minExportBytes else {
             throw ExtractionError.audioExportFailed("Exported audio too small (\(data.count) bytes)")
         }
-        guard videoDuration <= 0 || audioDuration >= videoDuration * NoteVConfig.TranscriptExtraction.minAudioDurationRatio else {
+        let referenceDuration = referenceDurationForValidation(
+            audioDuration: audioDuration,
+            containerVideoDuration: videoDuration
+        )
+        guard referenceDuration <= 0 || audioDuration >= referenceDuration * NoteVConfig.TranscriptExtraction.minAudioDurationRatio else {
             throw ExtractionError.audioExportFailed(
-                "Audio track too short (\(String(format: "%.1f", audioDuration))s vs \(String(format: "%.1f", videoDuration))s video)"
+                "Audio track too short (\(String(format: "%.1f", audioDuration))s vs \(String(format: "%.1f", referenceDuration))s video)"
             )
         }
     }

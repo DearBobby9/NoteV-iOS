@@ -110,7 +110,10 @@ final class PostProcessingOrchestrator {
                         failedStage: .finalizing
                     )
                 } else if updatedSession.transcriptSegments.isEmpty {
-                    warnings.append("Live transcription unavailable — will retry from session video")
+                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
+                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                        warnings.append("Live transcription unavailable — will retry from session video")
+                    }
                 }
 
             case .recoveringTranscript:

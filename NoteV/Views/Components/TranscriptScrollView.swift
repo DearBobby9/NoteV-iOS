@@ -12,12 +12,7 @@ struct TranscriptScrollView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if appState.transcriptSegments.isEmpty {
-                        if let warning = appState.liveTranscriptWarning {
-                            Text(warning)
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .padding(.top, 8)
-                        } else {
+                        if appState.liveTranscriptWarning == nil {
                             Text(appState.liveTranscriptHint ?? "Listening…")
                                 .font(.body)
                                 .foregroundColor(NoteVConfig.Design.textSecondary)

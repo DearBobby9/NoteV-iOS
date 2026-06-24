@@ -23,6 +23,7 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
     private var audioContinuation: AsyncStream<AudioChunk>.Continuation?
 
     private var acceptingSamples = true
+    private var sessionStartTime: Date?
 
     // Photo capture completion handler
     private var photoContinuation: CheckedContinuation<Data, Error>?
@@ -241,6 +242,7 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
     func startCapture() async throws {
         NSLog("[PhoneCaptureProvider] startCapture() called")
         acceptingSamples = true
+        sessionStartTime = Date()
         audioConverter = nil
         audioTargetFormat = nil
         visualSampleProcessor?.reset()
@@ -339,8 +341,7 @@ extension PhoneCaptureProvider: AVCaptureVideoDataOutputSampleBufferDelegate, AV
         if output === audioOutput {
             guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
 
-            let timestamp = visualSampleProcessor?.establishTimebaseIfNeeded(for: sampleBuffer) ?? 0
-            visualSampleProcessor?.processAudioSample(sampleBuffer)
+            let timestamp = sessionStartTime.map { Date().timeIntervalSince($0) } ?? 0
 
             if let chunk = makeAudioChunk(from: sampleBuffer, timestamp: timestamp) {
                 audioContinuation?.yield(chunk)

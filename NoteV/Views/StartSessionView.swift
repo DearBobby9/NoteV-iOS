@@ -217,8 +217,11 @@ struct StartSessionView: View {
 
         Task {
             // Check permissions before starting recording
-            let permissionsGranted = await checkPermissions()
-            guard permissionsGranted else { return }
+            let permissionsGranted = await checkPermissions(for: source)
+            guard permissionsGranted else {
+                appState.sessionStatus = .idle
+                return
+            }
 
             // Re-validate glasses connectivity after async permission checks
             let finalSource: CaptureSource
@@ -240,7 +243,7 @@ struct StartSessionView: View {
         }
     }
 
-    private func checkPermissions() async -> Bool {
+    private func checkPermissions(for source: CaptureSource) async -> Bool {
         // Camera
         let cameraGranted = await AVCaptureDevice.requestAccess(for: .video)
         if !cameraGranted {
@@ -257,16 +260,29 @@ struct StartSessionView: View {
             return false
         }
 
-        // Speech recognition
-        let speechStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status)
+        // Apple Speech only when that STT backend is active
+        if NoteVConfig.Audio.sttProvider == .appleSpeech {
+            let speechStatus = await withCheckedContinuation { continuation in
+                SFSpeechRecognizer.requestAuthorization { status in
+                    continuation.resume(returning: status)
+                }
+            }
+            if speechStatus != .authorized {
+                NSLog("[StartSessionView] Speech recognition permission denied: \(speechStatus.rawValue)")
+                appState.sessionStatus = .error("Speech recognition is required for live transcription. Please enable it in Settings > Privacy > Speech Recognition.")
+                return false
             }
         }
-        if speechStatus != .authorized {
-            NSLog("[StartSessionView] Speech recognition permission denied: \(speechStatus.rawValue)")
-            appState.sessionStatus = .error("Speech recognition is required for live transcription. Please enable it in Settings > Privacy > Speech Recognition.")
-            return false
+
+        // Meta DAT camera permission (separate from iOS camera — granted via Meta AI)
+        if source == .glasses {
+            do {
+                try await captureManager.ensureGlassesCameraPermission()
+            } catch {
+                NSLog("[StartSessionView] Glasses camera permission failed: \(error.localizedDescription)")
+                appState.sessionStatus = .error(error.localizedDescription)
+                return false
+            }
         }
 
         NSLog("[StartSessionView] All permissions granted")

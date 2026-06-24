@@ -8,8 +8,7 @@ import UIKit
 
 /// Captures frames and audio from Meta Ray-Ban smart glasses via the DAT SDK.
 /// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames.
-/// Audio: Glasses mic via Bluetooth HFP → phone AVAudioEngine → Deepgram STT + MP4 mux.
-/// Note: Glasses audio timestamps use wall-clock (`Date`); video frames use PTS. Small drift is accepted in v1.
+/// Audio: Glasses mic via Bluetooth HFP → single 16 kHz PCM stream (Meta has no DAT audio API).
 ///
 /// @MainActor because StreamSession and its publishers are MainActor-isolated.
 @MainActor
@@ -146,6 +145,12 @@ final class GlassesCaptureProvider: CaptureProvider {
 
     // MARK: - CaptureProvider
 
+    /// Waits for an active glasses device, then requests Meta AI camera permission if needed.
+    func ensureCameraPermission() async throws {
+        try await waitForConnectedDevice(timeoutSeconds: 10)
+        try await requestCameraPermissionWithRetry()
+    }
+
     /// Start capture: configure glasses HFP mic first, then DAT video stream (Meta doc order).
     func startCapture() async throws {
         NSLog("[GlassesCaptureProvider] startCapture() called")
@@ -154,29 +159,16 @@ final class GlassesCaptureProvider: CaptureProvider {
         _ = self.frameStream
 
         guard visualSampleProcessor != nil else {
-            throw NSError(
-                domain: "GlassesCaptureProvider",
+            throw Self.makeError(
                 code: -7,
-                userInfo: [NSLocalizedDescriptionKey: "VisualSampleProcessor must be set before startCapture()"]
+                message: "VisualSampleProcessor must be set before startCapture()"
             )
         }
 
         visualSampleProcessor?.reset()
         videoIngressProcessor = visualSampleProcessor
 
-        do {
-            let status = try await wearables.checkPermissionStatus(.camera)
-            if status != .granted {
-                let requestStatus = try await wearables.requestPermission(.camera)
-                if requestStatus != .granted {
-                    throw NSError(domain: "GlassesCaptureProvider", code: -3,
-                                  userInfo: [NSLocalizedDescriptionKey: "Camera permission denied on glasses"])
-                }
-            }
-        } catch {
-            NSLog("[GlassesCaptureProvider] Permission error: \(error.localizedDescription)")
-            throw error
-        }
+        try await ensureCameraPermission()
 
         streamFailedDuringStartup = false
         isStreaming = false
@@ -265,32 +257,21 @@ final class GlassesCaptureProvider: CaptureProvider {
         try GlassesHFPRoute.configurePreferredInput(on: audioSession)
 
         let inputNode = audioEngine.inputNode
-        let hardwareFormat = inputNode.outputFormat(forBus: 0)
+        let hardwareFormat = inputNode.inputFormat(forBus: 0)
 
         NSLog("[GlassesCaptureProvider] Audio hardware format: \(Int(hardwareFormat.sampleRate))Hz, \(hardwareFormat.channelCount)ch")
 
-        guard let sttFormat = AVAudioFormat(
+        guard let pcmFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: Double(NoteVConfig.Audio.sampleRate),
             channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
             interleaved: true
         ) else {
             throw NSError(domain: "GlassesCaptureProvider", code: -5,
-                          userInfo: [NSLocalizedDescriptionKey: "Could not create target audio format"])
+                          userInfo: [NSLocalizedDescriptionKey: "Could not create PCM audio format"])
         }
 
-        guard let muxFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16,
-            sampleRate: Double(NoteVConfig.Audio.muxSampleRate),
-            channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
-            interleaved: true
-        ) else {
-            throw NSError(domain: "GlassesCaptureProvider", code: -5,
-                          userInfo: [NSLocalizedDescriptionKey: "Could not create mux audio format"])
-        }
-
-        guard let sttConverter = AVAudioConverter(from: hardwareFormat, to: sttFormat),
-              let muxConverter = AVAudioConverter(from: hardwareFormat, to: muxFormat) else {
+        guard let converter = AVAudioConverter(from: hardwareFormat, to: pcmFormat) else {
             throw NSError(domain: "GlassesCaptureProvider", code: -6,
                           userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
         }
@@ -305,23 +286,12 @@ final class GlassesCaptureProvider: CaptureProvider {
                 timestamp = 0
             }
 
-            // 16 kHz for Deepgram STT
-            if let sttData = Self.convertBuffer(buffer, to: sttFormat, using: sttConverter) {
-                let duration = Double(sttData.count / 2) / sttFormat.sampleRate
-                audioCont?.yield(AudioChunk(timestamp: timestamp, data: sttData, duration: duration))
-            }
-
-            // 48 kHz for MP4 mux (must match VideoRecorder AAC track)
-            if let muxData = Self.convertBuffer(buffer, to: muxFormat, using: muxConverter) {
-                self?.videoIngressProcessor?.processAudioPCM(
-                    data: muxData,
-                    sessionRelativeTime: timestamp,
-                    sampleRate: muxFormat.sampleRate
-                )
-            }
+            guard let pcmData = Self.convertBuffer(buffer, to: pcmFormat, using: converter) else { return }
+            let duration = Double(pcmData.count / 2) / pcmFormat.sampleRate
+            audioCont?.yield(AudioChunk(timestamp: timestamp, data: pcmData, duration: duration))
         }
 
-        NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → STT \(NoteVConfig.Audio.sampleRate)Hz, MP4 \(NoteVConfig.Audio.muxSampleRate)Hz")
+        NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz mono PCM")
     }
 
     private static func convertBuffer(
@@ -368,11 +338,80 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
-        throw NSError(
-            domain: "GlassesCaptureProvider",
+        throw Self.makeError(
             code: -10,
-            userInfo: [NSLocalizedDescriptionKey:
-                "Glasses video stream timed out. Ensure glasses are worn, awake, and connected via Meta AI."]
+            message: "Glasses video stream timed out. Ensure glasses are worn, awake, and connected via Meta AI."
         )
+    }
+
+    // MARK: - Permissions
+
+    private func waitForConnectedDevice(timeoutSeconds: TimeInterval) async throws {
+        if isAvailable { return }
+
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            if isAvailable { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+
+        throw Self.makeError(
+            code: -11,
+            message: "Glasses aren't ready yet. Put them on, wake them in Meta AI, wait for the connection indicator, then try again."
+        )
+    }
+
+    private func requestCameraPermissionWithRetry(maxAttempts: Int = 3) async throws {
+        for attempt in 1...maxAttempts {
+            do {
+                let status = try await wearables.checkPermissionStatus(.camera)
+                if status == .granted { return }
+
+                NSLog("[GlassesCaptureProvider] Requesting camera permission via Meta AI (attempt \(attempt))")
+                let requestStatus = try await wearables.requestPermission(.camera)
+                if requestStatus == .granted { return }
+
+                throw Self.makeError(
+                    code: -3,
+                    message: "Camera access denied on glasses. Open Meta AI → App Connections → NoteV and allow camera access."
+                )
+            } catch let error as PermissionError {
+                NSLog("[GlassesCaptureProvider] Permission error (attempt \(attempt)): \(error.description)")
+                if attempt < maxAttempts, error == .noDeviceWithConnection || error == .noDevice {
+                    try await Task.sleep(nanoseconds: 800_000_000)
+                    try await waitForConnectedDevice(timeoutSeconds: 5)
+                    continue
+                }
+                throw Self.makeError(code: Int(error.rawValue), message: Self.userMessage(for: error))
+            } catch {
+                NSLog("[GlassesCaptureProvider] Permission error: \(error.localizedDescription)")
+                throw error
+            }
+        }
+    }
+
+    static func userMessage(for error: PermissionError) -> String {
+        switch error {
+        case .noDevice:
+            return "No glasses found. Pair your glasses in Meta AI and keep them nearby."
+        case .noDeviceWithConnection:
+            return "Glasses aren't connected. Open Meta AI, confirm they show as connected, then try again."
+        case .metaAINotInstalled:
+            return "Meta AI isn't installed. Install Meta AI to grant camera access for your glasses."
+        case .requestInProgress:
+            return "A permission request is already open in Meta AI. Complete it, then return to NoteV."
+        case .requestTimeout:
+            return "Permission request timed out. Open Meta AI and approve camera access for NoteV."
+        case .connectionError:
+            return "Couldn't reach your glasses. Check Bluetooth and Meta AI connection, then try again."
+        case .internalError:
+            return "Unexpected permission error. Try force-quitting Meta AI and NoteV, then reconnect your glasses."
+        @unknown default:
+            return "Camera permission failed (\(error.description)). Open Meta AI → App Connections → NoteV."
+        }
+    }
+
+    static func makeError(code: Int, message: String) -> NSError {
+        NSError(domain: "GlassesCaptureProvider", code: code, userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

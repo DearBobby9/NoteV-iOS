@@ -15,8 +15,6 @@ final class VisualSampleProcessor: @unchecked Sendable {
     var videoRecorder: VideoRecorder?
 
     private var sessionStartPTS: CMTime?
-    /// Maps wall-clock session time to glasses video PTS for audio mux alignment.
-    private var mediaTimeAnchor: (wallSeconds: TimeInterval, mediaPTS: CMTime)?
     private var frameIndex = 0
     private var lastYieldTime: TimeInterval = -999
     private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
@@ -41,7 +39,6 @@ final class VisualSampleProcessor: @unchecked Sendable {
     func reset() {
         queue.sync {
             sessionStartPTS = nil
-            mediaTimeAnchor = nil
             frameIndex = 0
             lastYieldTime = -999
             samplingInterval = NoteVConfig.Frame.periodicSamplingInterval
@@ -119,11 +116,13 @@ final class VisualSampleProcessor: @unchecked Sendable {
         if sessionStartPTS == nil {
             sessionStartPTS = pts
         }
-        if mediaTimeAnchor == nil {
-            mediaTimeAnchor = (0, pts)
+        let relativePTS = CMTimeSubtract(pts, sessionStartPTS!)
+        guard let muxBuffer = SampleBufferRetimestamp.retimestamp(sampleBuffer, presentationTime: relativePTS) else {
+            NSLog("[VisualSampleProcessor] ERROR: Could not retimestamp video sample")
+            return
         }
 
-        videoRecorder?.appendVideo(sampleBuffer)
+        videoRecorder?.appendVideo(muxBuffer)
 
         guard let sessionTime = presentationTimeOnQueue(for: sampleBuffer) else { return }
         guard sessionTime - lastYieldTime >= samplingInterval else { return }
@@ -156,13 +155,7 @@ final class VisualSampleProcessor: @unchecked Sendable {
     }
 
     private func makeAudioPresentationTime(sessionRelativeTime: TimeInterval) -> CMTime {
-        if let anchor = mediaTimeAnchor {
-            return CMTimeAdd(
-                anchor.mediaPTS,
-                CMTime(seconds: sessionRelativeTime, preferredTimescale: 600)
-            )
-        }
-        return CMTime(seconds: sessionRelativeTime, preferredTimescale: 600)
+        CMTime(seconds: sessionRelativeTime, preferredTimescale: 600)
     }
 
     private func establishTimebaseIfNeededOnQueue(for sampleBuffer: CMSampleBuffer) {
