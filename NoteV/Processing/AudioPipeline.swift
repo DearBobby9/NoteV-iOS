@@ -137,33 +137,66 @@ final class AudioPipeline {
     // MARK: - Deepgram Processing
 
     private func startDeepgramProcessing(audioStream: AsyncStream<AudioChunk>) async {
-        guard await connectDeepgramWithRetry(maxAttempts: 3) else { return }
-        guard let service = deepgramService else { return }
+        let coordinator = DeepgramFeedCoordinator()
 
-        deepgramBridgeTask = Task { [weak self] in
-            for await segment in service.transcriptStream {
-                guard let self = self else { break }
-                self.segmentIndex += 1
-                self.transcriptContinuation.yield(segment)
-            }
-            NSLog("[AudioPipeline] Deepgram transcript bridge ended")
+        let connectTask = Task { [weak self] () -> DeepgramService? in
+            guard let self else { return nil }
+            guard await self.connectDeepgramWithRetry(maxAttempts: 3, coordinator: coordinator) else { return nil }
+            return self.deepgramService
         }
 
         for await chunk in audioStream {
             guard isProcessing else { break }
-            await service.sendAudio(chunk)
+
+            if let service = coordinator.service ?? deepgramService {
+                await activateDeepgramService(service, coordinator: coordinator)
+                await service.sendAudio(chunk)
+            } else if !connectTask.isCancelled {
+                coordinator.appendPending(chunk, maxCount: NoteVConfig.Audio.deepgramConnectBufferMaxChunks)
+            } else {
+                break
+            }
+        }
+
+        if deepgramService == nil, let service = await connectTask.value {
+            await activateDeepgramService(service, coordinator: coordinator)
+            for buffered in coordinator.takePending() {
+                guard isProcessing else { break }
+                await service.sendAudio(buffered)
+            }
         }
 
         NSLog("[AudioPipeline] Audio feed completed — all chunks sent to Deepgram")
     }
 
-    private func connectDeepgramWithRetry(maxAttempts: Int) async -> Bool {
+    private func activateDeepgramService(_ service: DeepgramService, coordinator: DeepgramFeedCoordinator) async {
+        deepgramService = service
+
+        if coordinator.markBridgeStarted() {
+            deepgramBridgeTask = Task { [weak self] in
+                for await segment in service.transcriptStream {
+                    guard let self = self else { break }
+                    self.segmentIndex += 1
+                    self.transcriptContinuation.yield(segment)
+                }
+                NSLog("[AudioPipeline] Deepgram transcript bridge ended")
+            }
+        }
+
+        for buffered in coordinator.takePending() {
+            guard isProcessing else { break }
+            await service.sendAudio(buffered)
+        }
+    }
+
+    private func connectDeepgramWithRetry(maxAttempts: Int, coordinator: DeepgramFeedCoordinator) async -> Bool {
         for attempt in 1...maxAttempts {
             let service = DeepgramService()
             deepgramService = service
 
             do {
                 try await service.connect()
+                coordinator.setService(service)
                 NSLog("[AudioPipeline] Deepgram connected — streaming audio (attempt \(attempt))")
                 return true
             } catch {
@@ -345,5 +378,52 @@ final class AudioPipeline {
     private func signalFinalResultIfNeeded() {
         finalResultContinuation?.resume()
         finalResultContinuation = nil
+    }
+}
+
+// MARK: - DeepgramFeedCoordinator
+
+/// Thread-safe buffer used while Deepgram WebSocket connects in parallel with audio capture.
+private final class DeepgramFeedCoordinator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _service: DeepgramService?
+    private var _pending: [AudioChunk] = []
+    private var _bridgeStarted = false
+
+    var service: DeepgramService? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _service
+    }
+
+    func setService(_ service: DeepgramService) {
+        lock.lock()
+        _service = service
+        lock.unlock()
+    }
+
+    func appendPending(_ chunk: AudioChunk, maxCount: Int) {
+        lock.lock()
+        _pending.append(chunk)
+        if _pending.count > maxCount {
+            _pending.removeFirst(_pending.count - maxCount)
+        }
+        lock.unlock()
+    }
+
+    func takePending() -> [AudioChunk] {
+        lock.lock()
+        defer { lock.unlock() }
+        let chunks = _pending
+        _pending = []
+        return chunks
+    }
+
+    func markBridgeStarted() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if _bridgeStarted { return false }
+        _bridgeStarted = true
+        return true
     }
 }

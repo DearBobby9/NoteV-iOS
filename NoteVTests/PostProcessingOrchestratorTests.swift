@@ -22,7 +22,7 @@ final class PostProcessingOrchestratorTests: XCTestCase {
         XCTAssertNil(SessionStatus.complete.processingStageLabel)
     }
 
-    func testFrameExtractionEnabled() {
-        XCTAssertTrue(NoteVConfig.FrameExtraction.enabled)
+    func testSessionVideoFilenameMatchesStorageConfig() {
+        XCTAssertEqual(NoteVConfig.Storage.sessionVideoFilename, "session.mp4")
     }
 }

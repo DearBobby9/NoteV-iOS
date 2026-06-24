@@ -107,10 +107,29 @@ final class PostProcessingOrchestrator {
                         failedStage: .finalizing
                     )
                 } else if updatedSession.transcriptSegments.isEmpty {
-                    warnings.append("Live transcription unavailable — notes were generated from video frames only")
+                    warnings.append("Live transcription unavailable — will retry from session video")
                 }
 
             case .extractingFrames:
+                if NoteVConfig.TranscriptExtraction.enabled,
+                   updatedSession.transcriptSegments.isEmpty {
+                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
+                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                        do {
+                            let transcriptExtractor = SessionTranscriptExtractor()
+                            let segments = try await transcriptExtractor.extract(from: videoURL)
+                            updatedSession.transcriptSegments = segments
+                            appState.currentSession = updatedSession
+                            try? sessionStore.save(session: updatedSession)
+                            NSLog("[PostProcessingOrchestrator] MP4 transcript extraction complete — \(segments.count) segments")
+                            warnings.removeAll { $0.contains("Live transcription unavailable") }
+                        } catch {
+                            warnings.append("Video transcription failed — notes will use frames only")
+                            NSLog("[PostProcessingOrchestrator] MP4 transcription failed (non-fatal): \(error.localizedDescription)")
+                        }
+                    }
+                }
+
                 if NoteVConfig.FrameExtraction.enabled,
                    let _ = updatedSession.metadata.videoFilename {
                     let videoURL = sessionStore.videoURL(for: updatedSession.id)

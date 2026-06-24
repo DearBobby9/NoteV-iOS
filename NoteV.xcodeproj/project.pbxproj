@@ -44,7 +44,9 @@
 		T1R2A3N4S5D6E7N8S9I0T1Y2 /* TranscriptDensityAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */; };
 		E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */; };
 		S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */; };
+		S1E2S3S4T5R6A7N8S9C0R1E2 /* SessionTranscriptExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4T5R6A7N8S9C0R1E1 /* SessionTranscriptExtractor.swift */; };
 		S1E2S3S4F4R5A6M7E8X9T0R1 /* SessionFrameExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */; };
+		S1E2S3S4T5R6A7N8S9C0T1E1 /* SessionTranscriptExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4T5R6A7N8S9C0T1E0 /* SessionTranscriptExtractorTests.swift */; };
 		V2D3E4F5A6B7C8D9E0F1A2B3 /* VisualSampleProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */; };
 		P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */; };
 		P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */; };
@@ -164,7 +166,9 @@
 		T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDensityAnalyzer.swift; sourceTree = "<group>"; };
 		E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractionTimestampPlanner.swift; sourceTree = "<group>"; };
 		S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFrameExtractor.swift; sourceTree = "<group>"; };
+		S1E2S3S4T5R6A7N8S9C0R1E1 /* SessionTranscriptExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTranscriptExtractor.swift; sourceTree = "<group>"; };
 		S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFrameExtractorTests.swift; sourceTree = "<group>"; };
+		S1E2S3S4T5R6A7N8S9C0T1E0 /* SessionTranscriptExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTranscriptExtractorTests.swift; sourceTree = "<group>"; };
 		V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSampleProcessor.swift; sourceTree = "<group>"; };
 		P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostProcessingOrchestrator.swift; sourceTree = "<group>"; };
 		P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingStageBanner.swift; sourceTree = "<group>"; };
@@ -220,6 +224,7 @@
 				E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */,
 				B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */,
 				S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */,
+				S1E2S3S4T5R6A7N8S9C0R1E1 /* SessionTranscriptExtractor.swift */,
 				P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */,
 				V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */,
 				V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */,
@@ -255,6 +260,7 @@
 				E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */,
 				P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */,
 				S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */,
+				S1E2S3S4T5R6A7N8S9C0T1E0 /* SessionTranscriptExtractorTests.swift */,
 				V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */,
 			);
 			path = NoteVTests;
@@ -547,6 +553,7 @@
 				A1U2D3I4O5S6A7M8P9L0E1F2 /* AudioSampleBufferFactory.swift in Sources */,
 				E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */,
 				S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */,
+				S1E2S3S4T5R6A7N8S9C0R1E2 /* SessionTranscriptExtractor.swift in Sources */,
 				T1R2A3N4S5D6E7N8S9I0T1Y2 /* TranscriptDensityAnalyzer.swift in Sources */,
 				P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */,
 				DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */,
@@ -595,6 +602,7 @@
 				V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */,
 				P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */,
 				S1E2S3S4F4R5A6M7E8X9T0R1 /* SessionFrameExtractorTests.swift in Sources */,
+				S1E2S3S4T5R6A7N8S9C0T1E1 /* SessionTranscriptExtractorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

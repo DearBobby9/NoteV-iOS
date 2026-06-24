@@ -26,12 +26,23 @@ enum NoteVConfig {
         static let sttProvider: STTProvider = .deepgram
         /// Deepgram model identifier
         static let deepgramModel: String = "nova-3"
+        /// Seconds to wait for Deepgram WebSocket Metadata on slow networks (LTE)
+        static let deepgramMetadataTimeoutSeconds: TimeInterval = 30
+        /// Max audio chunks buffered while Deepgram connects in parallel (~30s of speech)
+        static let deepgramConnectBufferMaxChunks: Int = 600
         /// Audio sample rate in Hz
         static let sampleRate: Int = 16_000
         /// Audio bit depth
         static let bitDepth: Int = 16
         /// Number of audio channels
         static let channels: Int = 1
+    }
+
+    // MARK: - Transcript Extraction (post-stop from MP4)
+
+    enum TranscriptExtraction {
+        /// Whether to transcribe session.mp4 when live STT produced no segments
+        static let enabled: Bool = true
     }
 
     enum STTProvider: String {

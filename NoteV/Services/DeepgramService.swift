@@ -135,7 +135,8 @@ actor DeepgramService {
         startKeepAliveTimer()
 
         // Do not send audio until Metadata confirms the connection is ready (critical on LTE).
-        try await waitForMetadataReady(timeoutNanoseconds: 10_000_000_000)
+        let timeoutNs = UInt64(NoteVConfig.Audio.deepgramMetadataTimeoutSeconds * 1_000_000_000)
+        try await waitForMetadataReady(timeoutNanoseconds: timeoutNs)
         guard hasReceivedMetadata else {
             throw DeepgramError.connectionFailed("Deepgram Metadata was not received")
         }
@@ -269,6 +270,7 @@ actor DeepgramService {
             case "Metadata":
                 NSLog("[DeepgramService] Metadata received — connection confirmed")
                 hasReceivedMetadata = true
+                connectionLostBeforeReady = false
             case "UtteranceEnd":
                 NSLog("[DeepgramService] UtteranceEnd received")
             case "SpeechStarted":
@@ -378,12 +380,7 @@ actor DeepgramService {
 
         while elapsed < timeoutNanoseconds {
             if hasReceivedMetadata { return }
-            if connectionLostBeforeReady {
-                throw DeepgramError.connectionFailed("Connection lost before Deepgram Metadata")
-            }
-            if webSocketTask == nil {
-                throw DeepgramError.connectionFailed("WebSocket closed before Deepgram Metadata")
-            }
+            // Keep waiting after transient socket errors — Metadata often arrives after LTE hiccups.
             try await Task.sleep(nanoseconds: pollInterval)
             elapsed += pollInterval
         }
