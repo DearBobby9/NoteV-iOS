@@ -29,6 +29,9 @@ final class VideoRecorder: @unchecked Sendable {
     private var outputURL: URL?
     private var sessionStarted = false
     private var audioSamplesAppended = 0
+    private var pendingAudioBuffers: [CMSampleBuffer] = []
+    private var sessionStartTime: CMTime?
+    private var audioDropLogCount = 0
 
     // MARK: - Lifecycle
 
@@ -47,6 +50,9 @@ final class VideoRecorder: @unchecked Sendable {
             videoInput = nil
             audioInput = nil
             audioSamplesAppended = 0
+            pendingAudioBuffers = []
+            sessionStartTime = nil
+            audioDropLogCount = 0
 
             // Audio track must exist before startWriting() — video samples usually arrive first.
             let audioSettings: [String: Any] = [
@@ -105,6 +111,8 @@ final class VideoRecorder: @unchecked Sendable {
                     return
                 }
 
+                try? self.flushPendingAudioBuffers()
+
                 self.videoInput?.markAsFinished()
                 self.audioInput?.markAsFinished()
 
@@ -136,30 +144,76 @@ final class VideoRecorder: @unchecked Sendable {
 
         do {
             try configureInputIfNeeded(for: sampleBuffer, mediaType: mediaType)
+
+            if mediaType == .audio, !sessionStarted {
+                pendingAudioBuffers.append(sampleBuffer)
+                trimPendingAudioBuffersIfNeeded()
+                return
+            }
+
             try startSessionIfNeeded(with: sampleBuffer)
 
             guard let writer = assetWriter, writer.status != .failed else {
                 throw VideoRecorderError.writerFailed(assetWriter?.error?.localizedDescription ?? "writer failed")
             }
 
-            let input = mediaType == .video ? videoInput : audioInput
-            guard let input else { return }
-            guard input.isReadyForMoreMediaData else {
-                if mediaType == .audio {
-                    NSLog("[VideoRecorder] Audio input not ready — sample dropped")
-                }
-                return
-            }
-
-            if !input.append(sampleBuffer) {
-                throw VideoRecorderError.writerFailed("append returned false for \(mediaType.rawValue)")
-            }
-
-            if mediaType == .audio {
-                audioSamplesAppended += 1
-            }
+            try appendToInput(sampleBuffer, mediaType: mediaType)
+            try flushPendingAudioBuffers()
         } catch {
             NSLog("[VideoRecorder] ERROR appending \(mediaType.rawValue): \(error.localizedDescription)")
+        }
+    }
+
+    private func appendToInput(_ sampleBuffer: CMSampleBuffer, mediaType: AVMediaType) throws {
+        guard let writer = assetWriter, writer.status != .failed else {
+            throw VideoRecorderError.writerFailed(assetWriter?.error?.localizedDescription ?? "writer failed")
+        }
+
+        let input = mediaType == .video ? videoInput : audioInput
+        guard let input else { return }
+
+        guard input.isReadyForMoreMediaData else {
+            if mediaType == .audio {
+                pendingAudioBuffers.append(sampleBuffer)
+                trimPendingAudioBuffersIfNeeded()
+                if audioDropLogCount < 3 {
+                    audioDropLogCount += 1
+                    NSLog("[VideoRecorder] Audio input not ready — buffering sample (\(pendingAudioBuffers.count) queued)")
+                }
+            }
+            return
+        }
+
+        if !input.append(sampleBuffer) {
+            throw VideoRecorderError.writerFailed("append returned false for \(mediaType.rawValue)")
+        }
+
+        if mediaType == .audio {
+            audioSamplesAppended += 1
+        }
+    }
+
+    private func flushPendingAudioBuffers() throws {
+        guard sessionStarted, let audioInput else { return }
+
+        while !pendingAudioBuffers.isEmpty, audioInput.isReadyForMoreMediaData {
+            let buffer = pendingAudioBuffers.removeFirst()
+            if !audioInput.append(buffer) {
+                pendingAudioBuffers.insert(buffer, at: 0)
+                throw VideoRecorderError.writerFailed("append returned false for pending audio")
+            }
+            audioSamplesAppended += 1
+        }
+    }
+
+    private func trimPendingAudioBuffersIfNeeded() {
+        let maxPending = 300
+        if pendingAudioBuffers.count > maxPending {
+            pendingAudioBuffers.removeFirst(pendingAudioBuffers.count - maxPending)
+            if audioDropLogCount < 5 {
+                audioDropLogCount += 1
+                NSLog("[VideoRecorder] WARNING: Audio buffer overflow — dropped oldest samples")
+            }
         }
     }
 
@@ -199,6 +253,8 @@ final class VideoRecorder: @unchecked Sendable {
         }
         writer.startSession(atSourceTime: timestamp)
         sessionStarted = true
+        sessionStartTime = timestamp
+        try flushPendingAudioBuffers()
     }
 
     private func reset() {
@@ -208,5 +264,8 @@ final class VideoRecorder: @unchecked Sendable {
         outputURL = nil
         sessionStarted = false
         audioSamplesAppended = 0
+        pendingAudioBuffers = []
+        sessionStartTime = nil
+        audioDropLogCount = 0
     }
 }

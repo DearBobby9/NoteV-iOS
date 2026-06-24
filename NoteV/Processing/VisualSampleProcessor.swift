@@ -116,6 +116,9 @@ final class VisualSampleProcessor: @unchecked Sendable {
 
     private func processVideoSampleOnQueue(_ sampleBuffer: CMSampleBuffer) {
         let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if sessionStartPTS == nil {
+            sessionStartPTS = pts
+        }
         if mediaTimeAnchor == nil {
             mediaTimeAnchor = (0, pts)
         }
@@ -149,7 +152,6 @@ final class VisualSampleProcessor: @unchecked Sendable {
     }
 
     private func processAudioSampleOnQueue(_ sampleBuffer: CMSampleBuffer) {
-        _ = presentationTimeOnQueue(for: sampleBuffer)
         videoRecorder?.appendAudio(sampleBuffer)
     }
 

@@ -221,20 +221,16 @@ actor DeepgramService {
     private func startReceiveLoop() {
         receiveTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self = self else { break }
-                guard await self.isConnected else { break }
-                guard let ws = await self.webSocketTask else { break }
+                guard let self else { break }
+                guard await self.webSocketTask != nil else { break }
 
                 do {
-                    let message = try await ws.receive()
+                    let message = try await self.webSocketTask!.receive()
                     await self.handleMessage(message)
                 } catch {
                     if !Task.isCancelled {
-                        let connected = await self.isConnected
-                        if connected {
-                            NSLog("[DeepgramService] Receive error: \(error.localizedDescription)")
-                            await self.handleConnectionLost()
-                        }
+                        NSLog("[DeepgramService] Receive error: \(error.localizedDescription)")
+                        await self.handleConnectionLost()
                     }
                     break
                 }
@@ -378,7 +374,7 @@ actor DeepgramService {
     private func waitForMetadataReady(timeoutNanoseconds: UInt64) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask { [weak self] in
-                await self?.waitForMetadataSignal()
+                try await self?.waitForMetadataSignal()
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: timeoutNanoseconds)
@@ -389,7 +385,7 @@ actor DeepgramService {
         }
     }
 
-    private func waitForMetadataSignal() async {
+    private func waitForMetadataSignal() async throws {
         guard !hasReceivedMetadata else { return }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             if hasReceivedMetadata {
@@ -397,6 +393,9 @@ actor DeepgramService {
             } else {
                 metadataReadyContinuation = continuation
             }
+        }
+        guard hasReceivedMetadata else {
+            throw DeepgramError.connectionFailed("Connection lost before Deepgram Metadata")
         }
     }
 
