@@ -67,6 +67,11 @@ struct SessionListView: View {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
                                         .font(.caption)
+                                } else if session.isProcessingIncomplete {
+                                    Label("Incomplete", systemImage: "exclamationmark.circle.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                        .labelStyle(.titleAndIcon)
                                 }
                             }
                         }

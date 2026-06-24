@@ -554,6 +554,24 @@ struct SessionResultView: View {
 
             Spacer()
 
+            if appState.sessionStatus == .complete, !appState.isPostProcessing {
+                let canReprocess = appState.currentSession?.canReprocess ?? false
+                Button(action: { reprocessSession() }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Reprocess")
+                    }
+                    .font(.callout)
+                    .fontWeight(.medium)
+                    .foregroundColor(canReprocess ? NoteVConfig.Design.accent : NoteVConfig.Design.textSecondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(NoteVConfig.Design.surface)
+                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                }
+                .disabled(!canReprocess)
+            }
+
             // Done
             Button(action: {
                 if isBrowsingPastSession {
@@ -603,18 +621,56 @@ struct SessionResultView: View {
 
     private func retryGeneration() {
         guard let session = appState.currentSession else { return }
+        runPostProcessing(for: session)
+    }
+
+    private func reprocessSession() {
+        guard let session = appState.currentSession else { return }
+        runPostProcessing(for: session)
+    }
+
+    private func runPostProcessing(for session: SessionData) {
         guard !PostProcessingOrchestrator.shared.isProcessing else { return }
-        NSLog("[SessionResultView] Retrying generation pipeline")
+        guard session.canReprocess else { return }
+        NSLog("[SessionResultView] Starting post-processing pipeline")
         invalidatePDFCache()
-        appState.processingWarnings = []
+        appState.processingWarnings = reprocessPreflightWarnings(for: session)
+        appState.generatedNotes = nil
+        appState.extractedTodos = []
+
+        var cleared = session
+        cleared.notes = nil
+        cleared.todos = nil
+        cleared.slideAnalysis = nil
+        cleared.polishedTranscript = nil
+        appState.currentSession = cleared
 
         Task {
             _ = await PostProcessingOrchestrator.shared.process(
-                session: session,
+                session: cleared,
                 appState: appState,
-                fromStage: .polishing
+                fromStage: reprocessStartStage(for: session)
             )
         }
+    }
+
+    private func reprocessStartStage(for session: SessionData) -> PostProcessingStage {
+        guard NoteVConfig.FrameExtraction.enabled,
+              session.metadata.videoFilename != nil else {
+            return .polishing
+        }
+        let videoURL = sessionStore.videoURL(for: session.id)
+        return FileManager.default.fileExists(atPath: videoURL.path) ? .extractingFrames : .polishing
+    }
+
+    private func reprocessPreflightWarnings(for session: SessionData) -> [String] {
+        guard NoteVConfig.FrameExtraction.enabled else { return [] }
+        let hasVideo = session.metadata.videoFilename != nil
+            && FileManager.default.fileExists(atPath: sessionStore.videoURL(for: session.id).path)
+        if !hasVideo {
+            return ["No video — reprocessing notes from existing frames"]
+        }
+        return []
     }
 
     private func generatePDF(notes: StructuredNotes) {

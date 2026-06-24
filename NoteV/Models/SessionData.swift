@@ -90,6 +90,16 @@ struct SessionData: Identifiable, Codable, Sendable {
             .joined(separator: " ")
     }
 
+    /// Session has transcript but notes were never generated (or failed).
+    var isProcessingIncomplete: Bool {
+        notes == nil && !transcriptSegments.isEmpty
+    }
+
+    /// Whether reprocess/retry has enough artifacts to run the LLM pipeline.
+    var canReprocess: Bool {
+        !frames.isEmpty || !transcriptSegments.isEmpty
+    }
+
     /// Top frames ranked by importance (bookmarks first, then highest change score)
     func topFrames(limit: Int = NoteVConfig.NoteGeneration.maxFramesInPrompt) -> [TimestampedFrame] {
         let bookmarkFrames = frames.filter { $0.trigger == .bookmark || $0.trigger == .smartBookmark }
