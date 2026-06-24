@@ -107,17 +107,17 @@ final class SessionRecorder: ObservableObject {
                 appState?.videoRecordingWarning =
                     "Low storage space — session video was not recorded. Transcript and frames will still be saved."
             } else {
-            let videoURL = sessionStore.videoURL(for: newSessionId)
-            let recorder = VideoRecorder()
-            do {
-                try sessionStore.ensureSessionDirectory(for: newSessionId)
-                try recorder.startRecording(to: videoURL)
-                processor.videoRecorder = recorder
-                videoRecorder = recorder
-            } catch {
-                NSLog("[SessionRecorder] WARNING: Could not start video recording: \(error.localizedDescription)")
-                videoRecordingFailed = true
-            }
+                let videoURL = sessionStore.videoURL(for: newSessionId)
+                let recorder = VideoRecorder()
+                do {
+                    try sessionStore.ensureSessionDirectory(for: newSessionId)
+                    try recorder.startRecording(to: videoURL)
+                    processor.videoRecorder = recorder
+                    videoRecorder = recorder
+                } catch {
+                    NSLog("[SessionRecorder] WARNING: Could not start video recording: \(error.localizedDescription)")
+                    videoRecordingFailed = true
+                }
             }
         }
         #endif
@@ -157,7 +157,7 @@ final class SessionRecorder: ObservableObject {
         // Only set isRecording after successful start [P2 fix]
         isRecording = true
 
-        guard let provider = captureManager.activeProvider else {
+        guard captureManager.activeProvider != nil else {
             NSLog("[SessionRecorder] ERROR: No active provider after startCapture")
             isRecording = false
             appState?.sessionStatus = .error("No capture provider available")

@@ -164,12 +164,24 @@ enum NoteVConfig {
     enum Video {
         /// Whether full-session MP4 recording is enabled
         static let enabled: Bool = true
-        /// Target capture frame rate for MP4 (phone camera + glasses DAT stream)
+        /// Target capture frame rate for MP4 (phone camera)
         static let targetFrameRate: Int32 = 30
         /// iPhone camera session preset for full video recording
         static let phoneSessionPreset: AVCaptureSession.Preset = .hd1280x720
-        /// Glasses DAT StreamSession frame rate (valid: 2, 7, 15, 24, 30)
+        /// Glasses DAT StreamSession requested frame rate (valid: 2, 7, 15, 24, 30).
+        /// Effective delivery is bandwidth-limited and often below this on Ray-Ban Gen 2 / Vanguard.
         static let glassesStreamFrameRate: Int = 30
+        /// Minimum free disk space (bytes) before starting video recording
+        static let minFreeDiskBytes: Int64 = 2_000_000_000
+
+        /// Returns false when device free space is below `minFreeDiskBytes`.
+        static var hasSufficientDiskSpace: Bool {
+            guard let attrs = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+                  let free = attrs[.systemFreeSize] as? Int64 else {
+                return false
+            }
+            return free >= minFreeDiskBytes
+        }
     }
 
     // MARK: - Design System

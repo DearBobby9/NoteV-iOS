@@ -61,6 +61,15 @@ final class VideoRecorder: @unchecked Sendable {
         }
     }
 
+    /// Blocks until all previously dispatched append operations complete.
+    func waitForPendingAppends() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async {
+                continuation.resume()
+            }
+        }
+    }
+
     func finishRecording() async throws -> URL? {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { [weak self] in

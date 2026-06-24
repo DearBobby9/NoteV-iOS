@@ -247,6 +247,14 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
 
         _ = audioStream
 
+        guard visualSampleProcessor != nil else {
+            throw NSError(
+                domain: "PhoneCaptureProvider",
+                code: -8,
+                userInfo: [NSLocalizedDescriptionKey: "VisualSampleProcessor must be set before startCapture()"]
+            )
+        }
+
         do {
             try configureAudioSession()
         } catch {

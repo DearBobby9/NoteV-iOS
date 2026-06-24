@@ -32,6 +32,7 @@ struct SessionListView: View {
                         appState.currentSession = session
                         appState.generatedNotes = session.notes
                         appState.extractedTodos = session.todos ?? []
+                        appState.videoRecordingWarning = nil
                         appState.sessionStatus = .complete
                         appState.navigationPath.append(NavigationDestination.pastSessionResult)
                     }) {

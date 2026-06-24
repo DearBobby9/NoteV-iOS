@@ -1,9 +1,9 @@
+import AVKit
 import SwiftUI
 
 // MARK: - SessionResultView
 
-/// Two-tab post-recording view: Layer 1 (Polished Transcript Timeline) + Layer 2 (AI Notes).
-/// Replaces NotesResultView as the primary post-recording destination.
+/// Post-recording view: Video replay (when available), Timeline, AI Notes, and Tasks.
 struct SessionResultView: View {
     @EnvironmentObject var appState: AppState
 
@@ -17,11 +17,26 @@ struct SessionResultView: View {
     @State private var rawSegments: [TranscriptSegment] = []
     @State private var exportError: String?
     @State private var showChat = false
+    @State private var videoPlayer: AVPlayer?
 
     enum ResultTab: String, CaseIterable {
+        case video = "Video"
         case timeline = "Timeline"
         case aiNotes = "AI Notes"
         case tasks = "Tasks"
+    }
+
+    private let sessionStore = SessionStore()
+
+    private var visibleTabs: [ResultTab] {
+        sessionVideoURL != nil ? ResultTab.allCases : [.timeline, .aiNotes, .tasks]
+    }
+
+    private var sessionVideoURL: URL? {
+        guard let session = appState.currentSession,
+              session.metadata.videoFilename != nil else { return nil }
+        let url = sessionStore.videoURL(for: session.id)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     var body: some View {
@@ -30,9 +45,13 @@ struct SessionResultView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                if let warning = appState.videoRecordingWarning {
+                    videoWarningBanner(warning)
+                }
+
                 // Tab picker
                 Picker("View", selection: $selectedTab) {
-                    ForEach(ResultTab.allCases, id: \.self) { tab in
+                    ForEach(visibleTabs, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
                     }
                 }
@@ -42,6 +61,8 @@ struct SessionResultView: View {
 
                 // Content
                 switch selectedTab {
+                case .video:
+                    videoContent
                 case .timeline:
                     timelineContent
                 case .aiNotes:
@@ -87,6 +108,15 @@ struct SessionResultView: View {
                     .filter { $0.isFinal }
                     .sorted { $0.startTime < $1.startTime }
             }
+            if sessionVideoURL != nil {
+                selectedTab = .video
+            } else if !visibleTabs.contains(selectedTab) {
+                selectedTab = visibleTabs.first ?? .timeline
+            }
+        }
+        .onDisappear {
+            videoPlayer?.pause()
+            videoPlayer = nil
         }
         .sheet(isPresented: $showChat) {
             if let session = appState.currentSession {
@@ -104,6 +134,48 @@ struct SessionResultView: View {
         } message: {
             Text(exportError ?? "Unknown error")
         }
+    }
+
+    // MARK: - Video Tab
+
+    @ViewBuilder
+    private var videoContent: some View {
+        if let url = sessionVideoURL {
+            if let player = videoPlayer {
+                VideoPlayer(player: player)
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .padding(.horizontal, NoteVConfig.Design.padding)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear {
+                        videoPlayer = AVPlayer(url: url)
+                    }
+            }
+        } else {
+            placeholderView(
+                icon: "video.slash",
+                title: "No session video",
+                detail: "Video was not recorded for this session"
+            )
+        }
+    }
+
+    private func videoWarningBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(NoteVConfig.Design.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(NoteVConfig.Design.surface)
+        .cornerRadius(NoteVConfig.Design.cornerRadius)
+        .padding(.horizontal, NoteVConfig.Design.padding)
+        .padding(.top, 8)
     }
 
     // MARK: - Timeline Tab (Layer 1)

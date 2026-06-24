@@ -73,6 +73,9 @@ final class AppState: ObservableObject {
     @Published var autoBookmarkCount: Int = 0
     @Published var latestAutoBookmarkPhrase: String?
 
+    /// Non-nil when session video was skipped or failed; shown as a banner in SessionResultView.
+    @Published var videoRecordingWarning: String?
+
     // MARK: - Past Sessions
 
     @Published var pastSessions: [SessionData] = []
@@ -112,6 +115,7 @@ final class AppState: ObservableObject {
         extractedTodos = []
         autoBookmarkCount = 0
         latestAutoBookmarkPhrase = nil
+        videoRecordingWarning = nil
         NSLog("[AppState] State reset to idle")
     }
 }

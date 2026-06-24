@@ -7,9 +7,9 @@ import UIKit
 // MARK: - GlassesCaptureProvider
 
 /// Captures frames and audio from Meta Ray-Ban smart glasses via the DAT SDK.
-/// Video: StreamSession → videoFramePublisher → throttle → JPEG → TimestampedFrame.
+/// Video: StreamSession → VisualSampleProcessor → MP4 + throttled JPEG frames.
 /// Audio: Glasses mic routes through Bluetooth HFP → AVAudioEngine tap → 16kHz mono PCM → AudioChunk.
-/// Photo: streamSession.capturePhoto() → photoDataPublisher callback.
+/// Note: Glasses audio timestamps use wall-clock (`Date`); video frames use PTS. Small drift is accepted in v1.
 ///
 /// @MainActor because StreamSession and its publishers are MainActor-isolated.
 @MainActor
@@ -31,12 +31,6 @@ final class GlassesCaptureProvider: CaptureProvider {
     // Audio (glasses mic via Bluetooth HFP, not DAT SDK)
     private let audioEngine = AVAudioEngine()
 
-    // Frame throttle for legacy fallback when no VisualSampleProcessor is attached
-    private var lastYieldTime: TimeInterval = -999
-    private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
-    private var frameIndex: Int = 0
-    private var legacyFrameContinuation: AsyncStream<TimestampedFrame>.Continuation?
-
     // Session state
     private var sessionStartTime: Date?
     private var isStreaming = false
@@ -56,14 +50,8 @@ final class GlassesCaptureProvider: CaptureProvider {
     private nonisolated(unsafe) var videoIngressProcessor: VisualSampleProcessor?
 
     var frameStream: AsyncStream<TimestampedFrame> {
-        visualSampleProcessor?.frameStream ?? legacyFrameStream
+        visualSampleProcessor?.frameStream ?? AsyncStream { $0.finish() }
     }
-
-    private lazy var legacyFrameStream: AsyncStream<TimestampedFrame> = {
-        AsyncStream { continuation in
-            self.legacyFrameContinuation = continuation
-        }
-    }()
 
     lazy var audioStream: AsyncStream<AudioChunk> = {
         AsyncStream { continuation in
@@ -89,7 +77,6 @@ final class GlassesCaptureProvider: CaptureProvider {
 
         NSLog("[GlassesCaptureProvider] Initialized — monitoring device availability")
 
-        // Monitor device availability
         deviceMonitorTask = Task { [weak self, deviceSelector] in
             for await device in deviceSelector.activeDeviceStream() {
                 self?.isAvailable = device != nil
@@ -103,7 +90,6 @@ final class GlassesCaptureProvider: CaptureProvider {
     // MARK: - Listeners
 
     private func attachListeners() {
-        // Session state changes
         stateListenerToken = streamSession.statePublisher.listen { [weak self] state in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -126,41 +112,10 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
         }
 
-        // Video frames — full rate to MP4 via VisualSampleProcessor; throttled JPEGs for analysis
         videoFrameListenerToken = streamSession.videoFramePublisher.listen { [weak self] videoFrame in
-            if let processor = self?.videoIngressProcessor {
-                processor.processVideoSample(videoFrame.sampleBuffer)
-                return
-            }
-
-            guard let self else { return }
-            // Legacy fallback when processor not wired
-            Task { @MainActor in
-                let now = self.currentTimestamp()
-                guard now - self.lastYieldTime >= self.samplingInterval else { return }
-                self.lastYieldTime = now
-
-                guard let uiImage = videoFrame.makeUIImage(),
-                      let jpegData = uiImage.jpegData(compressionQuality: NoteVConfig.Storage.jpegCompressionQuality) else {
-                    return
-                }
-
-                self.frameIndex += 1
-                let filename = String(format: "frame_%04d.jpg", self.frameIndex)
-
-                let frame = TimestampedFrame(
-                    timestamp: now,
-                    trigger: .periodic,
-                    changeScore: 0.0,
-                    imageFilename: filename,
-                    imageData: jpegData
-                )
-
-                self.legacyFrameContinuation?.yield(frame)
-            }
+            self?.videoIngressProcessor?.processVideoSample(videoFrame.sampleBuffer)
         }
 
-        // Errors — suppress device-not-found when not streaming
         errorListenerToken = streamSession.errorPublisher.listen { [weak self] error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -172,7 +127,6 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
         }
 
-        // Photo capture results
         photoDataListenerToken = streamSession.photoDataPublisher.listen { [weak self] photoData in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -185,27 +139,23 @@ final class GlassesCaptureProvider: CaptureProvider {
 
     // MARK: - CaptureProvider
 
-    /// Update the sampling interval dynamically (called by FramePipeline for burst mode).
-    /// nonisolated because FramePipeline calls this from a non-MainActor context.
-    nonisolated func setSamplingInterval(_ interval: TimeInterval) {
-        Task { @MainActor [weak self] in
-            self?.samplingInterval = interval
-            NSLog("[GlassesCaptureProvider] Sampling interval set to \(String(format: "%.1f", interval))s")
-        }
-    }
-
     func startCapture() async throws {
         NSLog("[GlassesCaptureProvider] startCapture() called")
 
-        // Force lazy stream init so continuations are set before configureAudioEngine()
-        // captures them. Without this, audioContinuation is nil when installTap runs.
         _ = self.audioStream
         _ = self.frameStream
+
+        guard visualSampleProcessor != nil else {
+            throw NSError(
+                domain: "GlassesCaptureProvider",
+                code: -7,
+                userInfo: [NSLocalizedDescriptionKey: "VisualSampleProcessor must be set before startCapture()"]
+            )
+        }
 
         visualSampleProcessor?.reset()
         videoIngressProcessor = visualSampleProcessor
 
-        // Check/request camera permission via DAT SDK
         do {
             let status = try await wearables.checkPermissionStatus(.camera)
             if status != .granted {
@@ -220,17 +170,11 @@ final class GlassesCaptureProvider: CaptureProvider {
             throw error
         }
 
-        // Reset state
         sessionStartTime = Date()
-        frameIndex = 0
-        lastYieldTime = -999
-        samplingInterval = NoteVConfig.Frame.periodicSamplingInterval
 
-        // Start video streaming
         await streamSession.start()
         NSLog("[GlassesCaptureProvider] StreamSession started")
 
-        // Configure audio for glasses (Bluetooth HFP, not A2DP)
         do {
             try configureAudioEngine()
             try audioEngine.start()
@@ -254,16 +198,14 @@ final class GlassesCaptureProvider: CaptureProvider {
 
         visualSampleProcessor?.finishFrames()
         videoIngressProcessor = nil
-        legacyFrameContinuation?.finish()
         audioContinuation?.finish()
 
-        // Clean up pending photo continuation
         photoContinuation?.resume(throwing: NSError(domain: "GlassesCaptureProvider", code: -4,
                                                      userInfo: [NSLocalizedDescriptionKey: "Capture stopped during photo"]))
         photoContinuation = nil
 
         sessionStartTime = nil
-        NSLog("[GlassesCaptureProvider] Capture stopped — \(frameIndex) frames produced")
+        NSLog("[GlassesCaptureProvider] Capture stopped")
     }
 
     func capturePhoto() async throws -> Data {
@@ -284,8 +226,6 @@ final class GlassesCaptureProvider: CaptureProvider {
 
     private func configureAudioEngine() throws {
         let audioSession = AVAudioSession.sharedInstance()
-        // Glasses mode: .videoChat for mild AEC (mic on glasses, speaker on phone)
-        // .allowBluetoothHFP routes glasses 5-mic array via Bluetooth HFP
         try audioSession.setCategory(.playAndRecord, mode: .videoChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try audioSession.setActive(true)
 
@@ -294,25 +234,21 @@ final class GlassesCaptureProvider: CaptureProvider {
 
         NSLog("[GlassesCaptureProvider] Audio hardware format: \(Int(hardwareFormat.sampleRate))Hz, \(hardwareFormat.channelCount)ch")
 
-        // Target: 16kHz mono Int16 PCM (same as PhoneCaptureProvider)
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: Double(NoteVConfig.Audio.sampleRate),
             channels: AVAudioChannelCount(NoteVConfig.Audio.channels),
             interleaved: true
         ) else {
-            NSLog("[GlassesCaptureProvider] ERROR: Could not create target audio format")
             throw NSError(domain: "GlassesCaptureProvider", code: -5,
                           userInfo: [NSLocalizedDescriptionKey: "Could not create target audio format"])
         }
 
         guard let converter = AVAudioConverter(from: hardwareFormat, to: targetFormat) else {
-            NSLog("[GlassesCaptureProvider] ERROR: Could not create audio converter (\(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz)")
             throw NSError(domain: "GlassesCaptureProvider", code: -6,
                           userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
         }
 
-        // Capture continuation reference for use in audio tap closure (runs off MainActor)
         let audioCont = self.audioContinuation
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: hardwareFormat) { [weak self] buffer, _ in
@@ -334,7 +270,7 @@ final class GlassesCaptureProvider: CaptureProvider {
             let byteCount = Int(convertedBuffer.frameLength) * 2
             let data = Data(bytes: channelData[0], count: byteCount)
 
-            // Compute timestamp on audio thread (Date arithmetic is thread-safe)
+            // v1: wall-clock timestamps for glasses audio (video uses PTS via VisualSampleProcessor).
             let timestamp: TimeInterval
             if let start = self?.sessionStartTime {
                 timestamp = Date().timeIntervalSince(start)
@@ -343,23 +279,9 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
             let duration = Double(convertedBuffer.frameLength) / targetFormat.sampleRate
 
-            let chunk = AudioChunk(
-                timestamp: timestamp,
-                data: data,
-                duration: duration
-            )
-
-            // AsyncStream.Continuation.yield is thread-safe
-            audioCont?.yield(chunk)
+            audioCont?.yield(AudioChunk(timestamp: timestamp, data: data, duration: duration))
         }
 
         NSLog("[GlassesCaptureProvider] Audio engine configured — \(Int(hardwareFormat.sampleRate))Hz → \(NoteVConfig.Audio.sampleRate)Hz")
-    }
-
-    // MARK: - Helpers
-
-    private func currentTimestamp() -> TimeInterval {
-        guard let start = sessionStartTime else { return 0 }
-        return Date().timeIntervalSince(start)
     }
 }

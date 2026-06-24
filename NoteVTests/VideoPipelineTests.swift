@@ -57,6 +57,54 @@ final class VideoPipelineTests: XCTestCase {
         XCTAssertFalse(frames[0].imageData?.isEmpty ?? true)
     }
 
+    func testProcessorBurstSamplingInterval() async {
+        let processor = VisualSampleProcessor()
+        var frames: [TimestampedFrame] = []
+
+        let collectTask = Task {
+            for await frame in processor.frameStream {
+                frames.append(frame)
+                if frames.count >= 3 { break }
+            }
+        }
+
+        let timescale: CMTimeScale = 600
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0, preferredTimescale: timescale)))
+        processor.setSamplingInterval(1.0)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0.5, preferredTimescale: timescale)))
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 1.0, preferredTimescale: timescale)))
+        processor.processVideoSample(makeVideoSampleBuffer(presentationTime: CMTime(seconds: 2.0, preferredTimescale: timescale)))
+
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        collectTask.cancel()
+
+        XCTAssertEqual(frames.count, 3)
+        XCTAssertEqual(frames[0].timestamp, 0, accuracy: 0.01)
+        XCTAssertEqual(frames[1].timestamp, 1.0, accuracy: 0.01)
+        XCTAssertEqual(frames[2].timestamp, 2.0, accuracy: 0.01)
+    }
+
+    func testProcessorFlushAndWaitBeforeFinishRecording() async throws {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notev-test-\(UUID().uuidString).mp4")
+
+        let processor = VisualSampleProcessor()
+        let recorder = VideoRecorder()
+        try recorder.startRecording(to: tempURL)
+        processor.videoRecorder = recorder
+
+        let buffer = makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0, preferredTimescale: 600))
+        processor.processVideoSample(buffer)
+        await processor.flushAndWait()
+
+        let result = try await recorder.finishRecording()
+        XCTAssertNotNil(result)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
+
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
     // MARK: - SessionMetadata videoFilename
 
     func testSessionDataCodableRoundTripWithVideoFilename() throws {

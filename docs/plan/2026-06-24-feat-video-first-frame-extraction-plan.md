@@ -5,7 +5,7 @@ date: 2026-06-24
 branch: feat/video-first-frame-extraction
 ---
 
-> **Technical review (2026-06-24):** Split into 4 PRs recommended. Simplify v1: merge hub+sampler into `VisualSampleProcessor`, keep `capturePhoto()` for live bookmarks, defer post-stop `FrameExtractor`. Resolve phone dual-mic strategy before Phase 1. See [Review notes](#technical-review-notes) below.
+> **Technical review (2026-06-24, pass 2):** PR1+PR2 **implemented** on branch. Remaining work (~350–480 LOC): playback UI, optional `FrameExtractor`, hardening. Ship remainder as **one PR** (or optionally 2: extractor → UI). See [Implementation status](#implementation-status) and [Review notes](#technical-review-notes).
 
 ## feat: video-first capture with unified frame extraction — Standard
 
@@ -18,7 +18,7 @@ The key design constraint: **do not run two parallel visual capture pipelines** 
 1. **Video branch** — append every sample to `VideoRecorder` → `session.mp4`
 2. **Analysis branch** — throttle the *same* samples into `TimestampedFrame` → existing `FramePipeline` → `ImageStore` JPEGs
 
-Post-stop, bookmarks and high-precision seeks can **extract frames from the MP4** at exact timestamps via `AVAssetImageGenerator` (replacing `capturePhoto()` where possible).
+Post-stop, bookmarks can optionally **extract frames from the MP4** at exact timestamps via `AVAssetImageGenerator` (phase 2; v1 uses `capturePhoto()`).
 
 ## Problem Statement / Motivation
 
@@ -34,18 +34,18 @@ A naive “add video” implementation would **double encode** (MP4 + JPEG still
 
 ## Proposed Solution
 
-### Architecture: Unified Sample Buffer Hub
+### Architecture: Unified Sample Buffer Processor
 
-> **Review simplification:** Collapse `VisualSampleHub` + `FrameSampler` into a single **`VisualSampleProcessor`** (~10 lines of fan-out: record all, yield throttled frames). Defer standalone `FrameExtractor` to PR 3; keep `capturePhoto()` for live bookmarks in PR 1–2.
+> **Review simplification (implemented):** Single **`VisualSampleProcessor`** fans out: record all samples, yield throttled frames. Defer standalone `FrameExtractor` to remaining PR; keep `capturePhoto()` for live bookmarks in v1.
 
 ```mermaid
 flowchart LR
     subgraph Capture
-        Phone[PhoneCaptureProvider<br/>AVCaptureSession]
-        Glasses[GlassesCaptureProvider<br/>DAT StreamSession 2fps]
+        Phone[PhoneCaptureProvider<br/>AVCaptureSession 30fps]
+        Glasses[GlassesCaptureProvider<br/>DAT StreamSession 30fps req]
     end
 
-    subgraph Hub["VisualSampleProcessor (new)"]
+    subgraph Processor["VisualSampleProcessor"]
         In[CMSampleBuffer ingress]
         OutV[VideoRecorder<br/>all samples]
         OutF[Throttle 5s + burst]
@@ -80,9 +80,10 @@ flowchart LR
 | Analysis JPEG persistence | **Keep per-frame JPEG files** in session folder | Zero changes to `SlideAnalyzer`, `PDFGenerator`, `PromptBuilder`, `FrameDeduplicator` |
 | MP4 audio (phone) | **Mux mic audio** via `AVCaptureAudioDataOutput` into MP4 | Watchable lecture replay; STT remains separate PCM tap (same mic, two consumers) |
 | MP4 audio (glasses) | **Video-only MP4** in v1 | Glasses mic already routed via Bluetooth HFP → STT; muxing PCM into writer is phase 2 |
-| Bookmarks | **Keep `capturePhoto()` for live bookmarks in PR 1–2**; add MP4 `FrameExtractor` in PR 3 for post-session seek / fallback |
-| Post-session re-extract | **Optional validation pass** after stop | Re-extract bookmark timestamps from MP4 for sub-second accuracy if live fan-out drift detected |
+| Bookmarks | **`capturePhoto()` in v1**; optional MP4 `FrameExtractor` fallback in remaining PR | Live bookmark UX without waiting for post-stop extraction |
+| Post-session re-extract | **Deferred (YAGNI)** | Add only if device testing proves ±500ms drift between live frames and MP4 seek |
 | Failure mode | **Graceful degradation** | If MP4 fails, fall back to current JPEG-only path; warn user; still save transcript + frames |
+| Glasses frame rate | **Request 30 fps** via `StreamSessionConfig.frameRate` | Phone reliably delivers 30 fps; glasses DAT adaptively reduces under bandwidth — validate effective rate on hardware |
 
 ### What stays the same
 
@@ -96,148 +97,143 @@ flowchart LR
 
 | Area | Change |
 |------|--------|
-| `PhoneCaptureProvider` | Remove JPEG encode from throttle path; append all video buffers to hub; mux audio to MP4 |
-| `GlassesCaptureProvider` | Append `VideoFrame.sampleBuffer` to hub; remove parallel JPEG encode |
-| `SessionRecorder` | Own `VideoRecorder` lifecycle; set `metadata.videoFilename` on success |
-| `CaptureProvider` | Hub/recorder injection via existing `videoRecorder` + new `VisualSampleHub` |
-| Bookmarks | `SessionRecorder.triggerManualBookmark()` uses `FrameExtractor` at timestamp |
-| `SessionResultView` | New **Video** tab with `AVPlayer` when `videoFilename` present |
-| WIP cleanup | Finish wiring started in `VideoRecorder.swift`, `SessionMetadata.videoFilename`, `CaptureProvider.videoRecorder` |
+| `PhoneCaptureProvider` | All video samples → processor; mux audio to MP4; single mic path |
+| `GlassesCaptureProvider` | Ingress `VideoFrame.sampleBuffer` → processor; remove legacy JPEG path after device validation |
+| `SessionRecorder` | Own `VideoRecorder` + processor lifecycle; inject on provider; set `metadata.videoFilename` on success |
+| `CaptureProvider` | `videoRecorder` + `visualSampleProcessor` injection (via `SessionRecorder`, not `CaptureManager`) |
+| Bookmarks | **`capturePhoto()`** for live bookmarks; optional `FrameExtractor` fallback in remaining PR |
+| `SessionResultView` | New **Video** tab with inline `VideoPlayer` when `videoFilename` present |
 
 ## Technical Considerations
 
 ### Timestamp alignment
 
-- **Problem:** Frames today use `Date().timeIntervalSince(sessionStart)`; video uses `CMSampleBuffer` presentation timestamps.
-- **Fix:** Compute frame `timestamp` from `CMSampleBufferGetPresentationTimeStamp` relative to first video PTS (session time zero). Apply same clock to bookmark extraction seeks.
-- **Acceptance tolerance:** ±500ms between frame timestamp and MP4 seek position.
+- **Problem:** Frames use PTS via processor; glasses audio still uses `Date().timeIntervalSince(sessionStart)` in the `AVAudioEngine` tap.
+- **Fix (video frames):** Compute frame `timestamp` from `CMSampleBufferGetPresentationTimeStamp` relative to first video PTS (session time zero). ✅ Implemented in `VisualSampleProcessor`.
+- **Fix (glasses audio — PR2 polish):** Align glasses audio timestamps to the same PTS timebase or document drift and accept for v1.
+- **Acceptance tolerance:** ±500ms between frame timestamp and MP4 seek position (bookmarks via `capturePhoto()` may not meet this until PR3 `FrameExtractor`).
 
-### Burst mode on glasses (2 fps ceiling)
+### Burst mode on glasses
 
-- DAT stream max ~2 fps — burst “1s × 3” cannot exceed source rate.
-- **Behavior:** Burst mode on glasses lowers throttle to **0.5s** (every available frame) instead of 1s; document as platform limit in `NoteVConfig`.
+- DAT SDK allows requesting 2/7/15/24/30 fps; **effective rate is bandwidth-limited** (often well below request on Ray-Ban Gen 2 / Vanguard).
+- **Config:** `NoteVConfig.Video.glassesStreamFrameRate = 30` (request max; device may deliver less).
+- **Behavior:** Burst mode lowers processor throttle to 1.0s (same as phone). If effective glasses rate is ~2 fps, burst cannot exceed source rate — validate on hardware and add `NoteVConfig.Frame.glassesBurstSamplingInterval = 0.5` if needed.
 
 ### Stop ordering (critical)
 
 ```
 1. Stop accepting new samples (provider flag)
-2. Finish frameStream / audioStream continuations
-3. Await FramePipeline + collectors drain
-4. VideoRecorder.finishWriting() → session.mp4
-5. Optional: FrameExtractor.extract(at: bookmark timestamps)
-6. Assemble SessionData with videoFilename + frames
-7. SessionStore.save()
+2. stopCapture() → finish frameStream / audioStream continuations
+3. Await FramePipeline + AudioPipeline tasks (drain raw input)
+4. endAudio + waitForFinalResult + finish output streams (STT finalization)
+5. framePipeline.stop() → await transcript + frame collectors
+6. **Drain processor + VideoRecorder queues** (barrier before finish)   ← REQUIRED
+7. VideoRecorder.finishRecording() → session.mp4
+8. Assemble SessionData with videoFilename + frames
+9. SessionStore.save()
 ```
 
 Never mark session complete before `finishWriting` succeeds (or explicit fallback path chosen).
+
+**Known gap:** Step 6 not yet implemented — `VisualSampleProcessor` and `VideoRecorder` use separate serial queues; `finishRecording()` can race with in-flight `appendVideo` blocks.
 
 ### Storage budget
 
 | Artifact | 60 min lecture (estimate) |
 |----------|---------------------------|
-| `session.mp4` (720p H.264 phone) | ~500 MB–1.5 GB |
+| `session.mp4` (720p H.264 phone @ 30fps) | ~500 MB–1.5 GB |
 | JPEG frames (~720 @ 5s) | ~50–150 MB |
 | `session.json` + transcript | < 5 MB |
 
-- Add **low-disk preflight** before recording (warn if &lt; 2 GB free).
+- Optional **low-disk preflight** before recording (warn if &lt; 2 GB free) — remaining PR.
 - Config flag `NoteVConfig.Video.enabled` default `true`; allow disable for storage-constrained devices.
-
-### Partial WIP on branch
-
-Uncommitted work already adds:
-
-- `NoteV/Processing/VideoRecorder.swift` — AVAssetWriter wrapper (not wired)
-- `SessionMetadata.videoFilename` — model field only
-- `CaptureProvider.videoRecorder` — protocol property; `PhoneCaptureProvider` declares it
-- `PhoneCaptureProvider` — `AVCaptureAudioDataOutput` added but not fully integrated
-- `NoteVConfig.Storage.sessionVideoFilename` = `"session.mp4"`
-
-**Plan first PR:** finish hub wiring + SessionRecorder lifecycle before UI polish.
 
 ### Security / privacy
 
 - Video stored locally in app sandbox (`Documents/NoteVSessions/{uuid}/session.mp4`) — same as JPEGs today.
 - No change to network upload; MP4 not sent to LLM in v1 (frames only, as today).
 
-## Implementation Plan (4 PRs)
+## Implementation Status
 
-### PR 1 — Phone video-first pipeline (~450–550 LOC)
+### Done (PR1 + PR2 — landed on branch)
 
-- [ ] Add `NoteV/Processing/VisualSampleProcessor.swift` — fan-out: all buffers → recorder; throttled subset → `TimestampedFrame`
-- [ ] Wire burst callback: `FramePipeline.onSamplingIntervalChanged` → **processor** (remove provider `setSamplingInterval`)
-- [ ] Wire `SessionRecorder.startRecording()`:
-  - Create `{sessionId}/session.mp4`
-  - Set `provider.videoRecorder` + processor before `startCapture()`
-- [ ] Wire `SessionRecorder.stopRecording()` using merged stop sequence above
-- [ ] Refactor `PhoneCaptureProvider`:
-  - All video samples → processor (no pre-hub throttle)
-  - Single mic path: `AVCaptureAudioDataOutput` → STT PCM + `VideoRecorder.appendAudio`
-  - Remove `AVAudioEngine` mic tap during recording
-- [ ] PTS-relative timestamps via shared session timebase (first video PTS = 0)
-- [ ] Align preset to `NoteVConfig.Video.phoneSessionPreset`
-- [ ] Add `SessionStore.videoURL(for:)` helper
-- [ ] Tests: `VisualSampleProcessor`, `VideoRecorder`, PTS conversion, `SessionData` codable round-trip for `videoFilename`
+- [x] `VisualSampleProcessor` — fan-out: all buffers → recorder; throttled subset → `TimestampedFrame`
+- [x] `VideoRecorder` — AVAssetWriter wrapper, wired via `SessionRecorder`
+- [x] Burst callback: `FramePipeline.onSamplingIntervalChanged` → processor
+- [x] `SessionRecorder.startRecording()` — create MP4, inject processor + recorder on provider
+- [x] `SessionRecorder.stopRecording()` — STT-safe teardown sequence (steps 1–5, 7–9)
+- [x] `PhoneCaptureProvider` — all video → processor; 30fps; `AVCaptureAudioDataOutput` → STT + MP4; removed `AVAudioEngine` mic tap
+- [x] `GlassesCaptureProvider` — `videoIngressProcessor`; DAT 30fps request; processor fan-out
+- [x] PTS-relative timestamps via processor timebase
+- [x] `SessionMetadata.videoFilename` + codable round-trip
+- [x] `SessionStore.videoURL(for:)`
+- [x] Partial tests: PTS conversion, recorder lifecycle, codable, `videoURL` (`VideoPipelineTests.swift`)
 
-### PR 2 — Glasses path (~150–220 LOC)
+### Remaining (single PR ~350–480 LOC)
 
-**Depends on PR 1**
+- [ ] **Queue drain before `finishRecording`** — `processor.flushAndWait()` + `videoRecorder.waitForPendingAppends()`
+- [ ] **Processor throttle/burst unit tests** — periodic gate at 5s, burst interval 5s → 1s → 5s
+- [ ] Remove glasses legacy JPEG fallback path (~40 LOC) once processor injection confirmed
+- [ ] Remove redundant `glassesProvider.setSamplingInterval` from burst callback (processor only)
+- [ ] Glasses audio PTS alignment (or document v1 drift acceptance)
+- [ ] Add `NoteV/Processing/FrameExtractor.swift` (optional — skip if `capturePhoto()` sufficient)
+- [ ] Inline `VideoPlayer` in `SessionResultView` Video tab (no separate view file)
+- [ ] Surface `videoRecordingFailed` to user (banner in result view)
+- [ ] Optional low-disk preflight
+- [ ] Document glasses effective fps / burst cap in `NoteVConfig` after device validation
 
-- [ ] Add `videoRecorder` + processor to `GlassesCaptureProvider`
-- [ ] Ingress `videoFrame.sampleBuffer` on background queue (hop off `@MainActor` publisher)
-- [ ] Pass processor through `CaptureManager`
-- [ ] Document 2 fps burst cap in `NoteVConfig`
+## Implementation Plan
 
-### PR 3 — Bookmark MP4 extraction (~150–200 LOC)
+### ~~PR 1 — Phone video-first pipeline~~ ✅ Done
 
-**Depends on PR 1**
+### ~~PR 2 — Glasses path~~ ✅ Done (same commit as PR1)
 
-- [ ] Add `NoteV/Processing/FrameExtractor.swift`
-- [ ] Post-stop or on-demand bookmark frame from MP4 at timestamp
-- [ ] Keep `capturePhoto()` fallback
+### PR 3 — Remaining: playback, extraction, hardening (~350–480 LOC)
 
-### PR 4 — Playback + hardening (~200–280 LOC)
+**Depends on:** PR1+PR2 (complete)
 
-**Depends on PR 1**
+**Optional split:** If reviewers prefer layer separation, split into PR3a (`FrameExtractor` + tests) and PR3b (playback UI + hardening). Default: ship as one PR.
 
-- [ ] Inline `VideoPlayer` in `SessionResultView` Video tab
-- [ ] MP4 failure warning; simulator skip MP4
+- [ ] Queue drain fix (blocker for merge confidence)
+- [ ] Processor throttle/burst tests
+- [ ] Glasses cleanup (legacy path, burst wiring)
+- [ ] `FrameExtractor` + bookmark MP4 fallback (optional)
+- [ ] Video tab in `SessionResultView`
+- [ ] User-visible video failure warning
 - [ ] Optional low-disk preflight
 
-### Files touched (expected)
+### Files touched
 
 ```
-NoteV/Processing/VideoRecorder.swift          (existing WIP — finish)
-NoteV/Processing/VisualSampleProcessor.swift (new — replaces hub+sampler)
-NoteV/Processing/FrameExtractor.swift         (PR 3)
-NoteV/Processing/SessionRecorder.swift        (wire lifecycle)
-NoteV/Processing/FramePipeline.swift          (minimal — burst callback target)
-NoteV/Capture/PhoneCaptureProvider.swift      (hub ingress, remove duplicate JPEG)
-NoteV/Capture/GlassesCaptureProvider.swift    (hub ingress)
-NoteV/Capture/CaptureManager.swift            (pass recorder/hub)
-NoteV/Capture/CaptureProvider.swift           (hub protocol)
-NoteV/Models/SessionData.swift                (videoFilename — done)
-NoteV/Config/NoteVConfig.swift                (Video enum — partial)
-NoteV/Storage/SessionStore.swift              (videoURL helper)
-NoteV/Views/SessionResultView.swift           (Video tab)
-NoteV/Views/Components/SessionVideoPlayerView.swift (new)
-NoteV.xcodeproj/project.pbxproj               (new files)
-project.yml                                   (if using xcodegen)
-README.md                                     (video feature note — optional)
+NoteV/Processing/VideoRecorder.swift          (done — add queue drain)
+NoteV/Processing/VisualSampleProcessor.swift  (done — add flushAndWait)
+NoteV/Processing/FrameExtractor.swift         (remaining — optional)
+NoteV/Processing/SessionRecorder.swift        (done — drain fix remaining)
+NoteV/Processing/FramePipeline.swift          (done — burst callback)
+NoteV/Capture/PhoneCaptureProvider.swift      (done)
+NoteV/Capture/GlassesCaptureProvider.swift    (done — legacy cleanup remaining)
+NoteV/Capture/CaptureProvider.swift             (done)
+NoteV/Models/SessionData.swift                (done)
+NoteV/Config/NoteVConfig.swift                (done — glasses burst doc remaining)
+NoteV/Storage/SessionStore.swift              (done)
+NoteV/Views/SessionResultView.swift           (remaining — Video tab)
+NoteVTests/VideoPipelineTests.swift           (partial — throttle tests remaining)
+NoteV.xcodeproj/project.pbxproj               (done)
 ```
 
 ## Acceptance Criteria
 
-- [ ] **Single ingress:** Phone and glasses feed one visual sample stream; no separate parallel JPEG-only camera pipeline during recording
-- [ ] **MP4 artifact:** Successful sessions persist `{sessionId}/session.mp4`; `SessionMetadata.videoFilename == "session.mp4"`
-- [ ] **Analysis parity:** Frame count, change detection, burst behavior, and `maxFramesPerSession` match current baseline within glasses 2 fps limits
-- [ ] **Live UX:** `frameCount` and `FrameThumbnailView` update during recording (via fan-out, not post-session wait)
-- [ ] **Downstream unchanged:** `SlideAnalyzer`, `TranscriptPolisher`, `PDFGenerator`, and timeline views work without modification to their inputs
-- [ ] **Bookmarks:** Manual bookmark produces `bookmark_N.jpg` at correct timestamp (MP4 extraction or photo fallback)
-- [ ] **Stop integrity:** Session not marked complete with corrupt/truncated MP4; `finishWriting` completes or fallback path documented
-- [ ] **Timestamp accuracy:** Frame timestamps derived from video PTS; bookmark seek aligns within ±500ms
-- [ ] **Failure degradation:** Video failure shows user warning; transcript + frames still saved when possible
-- [ ] **Playback:** Session result Video tab plays local MP4 for phone and glasses sessions
-- [ ] **Bundle ID unchanged:** `com.seatrials.notev` — no Meta DAT config regression
+- [x] **Single ingress:** Phone and glasses feed one visual sample stream; no separate parallel JPEG-only camera pipeline during recording
+- [x] **MP4 artifact:** Successful sessions persist `{sessionId}/session.mp4`; `SessionMetadata.videoFilename == "session.mp4"`
+- [ ] **Analysis parity:** Frame count, change detection, burst behavior match baseline (validate on device; glasses effective fps may be lower than 30)
+- [x] **Live UX:** `frameCount` and `FrameThumbnailView` update during recording (via fan-out)
+- [x] **Downstream unchanged:** `SlideAnalyzer`, `TranscriptPolisher`, `PDFGenerator`, and timeline views work without modification
+- [ ] **Bookmarks:** Manual bookmark produces `bookmark_N.jpg` via `capturePhoto()` (MP4 extraction optional)
+- [ ] **Stop integrity:** No truncated MP4 — recorder queue drained before `finishWriting`
+- [x] **Timestamp accuracy (video frames):** Frame timestamps derived from video PTS
+- [ ] **Failure degradation:** Video failure shows **user-visible** warning; transcript + frames still saved
+- [ ] **Playback:** Session result Video tab plays local MP4
+- [x] **Bundle ID unchanged:** `com.seatrials.notev`
 
 ## Success Metrics
 
@@ -252,10 +248,10 @@ README.md                                     (video feature note — optional)
 |------|------------|
 | Post-session-only extraction breaks live UX | **Rejected** — use live fan-out per design decision |
 | Glasses H.264 writer incompatibility | Use `VideoFrame.sampleBuffer` format as writer input; test on physical Vanguard/Wayfarer |
-| Timestamp drift | PTS-relative timestamps; post-stop bookmark re-extract |
+| Timestamp drift (glasses audio vs video PTS) | Align glasses audio clock or document v1 acceptance |
 | Disk exhaustion | Preflight + config toggle to disable video |
-| Stop-order race corrupts MP4 | Enforce ordered teardown sequence above |
-| Partial WIP ships half-wired | Phase 1 completes SessionRecorder before UI |
+| Stop-order race corrupts MP4 | **Add queue drain (step 6)** before `finishWriting` |
+| Glasses effective fps &lt; requested 30 | Document in config; burst cannot exceed source rate |
 | Meta glasses registration (separate issue) | Out of scope; video plan does not change DAT config |
 
 ## Testing Plan
@@ -264,28 +260,32 @@ README.md                                     (video feature note — optional)
 
 - [ ] Phone: 2 min recording → MP4 plays back with audio; timeline has frames; PDF includes images
 - [ ] Phone: slide change triggers burst (verify ≥3 frames in quick succession in logs)
-- [ ] Phone: manual bookmark → `bookmark_1.jpg` matches video seek at timestamp
-- [ ] Glasses: 2 min recording → MP4 exists; frames extracted at ~2 fps max
+- [ ] Phone: manual bookmark → `bookmark_1.jpg` exists
+- [ ] Glasses: 2 min recording → MP4 exists; frames throttled for analysis
 - [ ] Stop during active recording → MP4 not corrupt; session saves
 - [ ] Force video failure (disk full simulation) → user warning + frames/transcript saved
 - [ ] Simulator: recording completes without crash; video skipped gracefully
 
-### Automated (where feasible)
+### Automated
 
-- [ ] Unit test `FrameSampler` throttle + burst interval transitions
-- [ ] Unit test PTS → session timestamp conversion
-- [ ] `FrameExtractor` test with bundled short test MP4 fixture in `NoteVTests/`
+- [x] Unit test PTS → session timestamp conversion
+- [x] `VideoRecorder` lifecycle + codable round-trip for `videoFilename`
+- [ ] Unit test `VisualSampleProcessor` throttle + burst interval transitions
+- [ ] Recorder queue drain before finish (integration or spy)
+- [ ] `FrameExtractor` test with bundled test MP4 fixture (if extractor shipped)
 
 ## References & Research
 
 ### Codebase (current)
 
-- Throttle + JPEG encode: `NoteV/Capture/PhoneCaptureProvider.swift:267-299`
-- Glasses stream + JPEG: `NoteV/Capture/GlassesCaptureProvider.swift:119-144`
-- Frame change detection: `NoteV/Processing/FramePipeline.swift`
+- Visual fan-out: `NoteV/Processing/VisualSampleProcessor.swift`
+- MP4 writer: `NoteV/Processing/VideoRecorder.swift`
 - Session orchestration: `NoteV/Processing/SessionRecorder.swift`
-- WIP recorder: `NoteV/Processing/VideoRecorder.swift`
+- Phone capture: `NoteV/Capture/PhoneCaptureProvider.swift`
+- Glasses capture: `NoteV/Capture/GlassesCaptureProvider.swift`
+- Frame change detection: `NoteV/Processing/FramePipeline.swift`
 - Config: `NoteV/Config/NoteVConfig.swift` (`Frame`, `Storage`, `Video`)
+- Tests: `NoteVTests/VideoPipelineTests.swift`
 - DAT `VideoFrame.sampleBuffer`: Meta `MWDATCamera` SDK
 
 ### External
@@ -294,11 +294,6 @@ README.md                                     (video feature note — optional)
 - [Apple AVAssetImageGenerator — frame extraction](https://developer.apple.com/documentation/avfoundation/avassetimagegenerator)
 - [Meta DAT iOS integration](https://wearables.developer.meta.com/docs/develop/dat/build-integration-ios/)
 
-### Flow analysis
-
-- User-flow-analysis-agent identified live-vs-post extraction as blocking decision → **resolved: live fan-out**
-- See agent transcript: [video-first flow analysis](2315535f-ee65-49b1-84f4-62420bce53dd)
-
 ## Out of Scope (v1)
 
 - Uploading or streaming MP4 to cloud
@@ -306,13 +301,14 @@ README.md                                     (video feature note — optional)
 - Re-encoding or editing MP4 in-app
 - Glasses audio mux into MP4 (phase 2)
 - Extracting frames from old sessions recorded before this feature (no MP4 exists)
+- Post-stop bookmark re-extract validation pass (add only if drift observed)
 
 ## Technical Review Notes
 
-**Verdict:** Proceed after amendments above (simplicity + VGV review incorporated).
+**Verdict (pass 2):** PR1+PR2 architecture sound and implemented. **Block remaining PR merge** on recorder queue drain + processor throttle tests. Refresh plan (this pass) before `/build`.
 
 | Review | Key finding |
 |--------|-------------|
-| [Simplicity](9e5dccc8-12ee-41eb-9dca-65f3fdd97782) | Merge hub+sampler; defer extractor to PR 3; keep live bookmark photos |
-| [VGV](caaff13a-d785-4350-ac29-d21b9513645e) | Fix stop-order + STT; single mic path; burst → processor; add VideoRecorder tests |
-| [Split](e5d63dfd-f10f-4388-859c-c99bd700493b) | 4 PRs (~900–1200 LOC total) — do not ship as one PR |
+| [Simplicity](d3715e84-7b27-40d1-845b-5d6d890404e2) | Core design lean; remove glasses legacy path; defer `FrameExtractor`; inline `VideoPlayer`; plan was stale on WIP/2fps |
+| [VGV](9b6ba6df-a787-4838-be03-dbe2aa3ea000) | Cross-queue drain race before `finishRecording`; glasses audio PTS drift; add throttle tests; surface video failure to user |
+| [Split](c4f2aedb-1e72-41f2-909d-655747cd0f48) | Original 4-PR split obsolete — PR1+2 done; **ship remainder as 1 PR** (~350–480 LOC) |
