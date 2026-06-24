@@ -40,6 +40,9 @@
 		9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */; };
 		V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */; };
 		V2D3E4F5A6B7C8D9E0F1A2B3 /* VisualSampleProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */; };
+		P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */; };
+		P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */; };
+		P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */; };
 		V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* PolishedTranscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */; };
 		A203C5DE2F508C3E0BE37EAE /* MultimodalNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */; };
@@ -151,6 +154,9 @@
 		B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
 		V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecorder.swift; sourceTree = "<group>"; };
 		V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSampleProcessor.swift; sourceTree = "<group>"; };
+		P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostProcessingOrchestrator.swift; sourceTree = "<group>"; };
+		P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingStageBanner.swift; sourceTree = "<group>"; };
+		P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostProcessingOrchestratorTests.swift; sourceTree = "<group>"; };
 		V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPipelineTests.swift; sourceTree = "<group>"; };
 		B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSyncService.swift; sourceTree = "<group>"; };
 		BA985C033FF1B493D35EDD10 /* TodoExtractionPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoExtractionPromptBuilder.swift; sourceTree = "<group>"; };
@@ -198,6 +204,7 @@
 				AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */,
 				2ABBF48B47823E60ED467485 /* FramePipeline.swift */,
 				B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */,
+				P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */,
 				V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */,
 				V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */,
 				AA11BB22CC33DD44EE55FF05 /* SlideAnalyzer.swift */,
@@ -229,6 +236,7 @@
 			isa = PBXGroup;
 			children = (
 				E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */,
+				P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */,
 				V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */,
 			);
 			path = NoteVTests;
@@ -321,6 +329,7 @@
 				AA11BB22CC33DD44EE55FF0B /* ExportPreviewSheet.swift */,
 				3336EEAFAA7D1CB8DD7ECD86 /* FrameThumbnailView.swift */,
 				C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */,
+				P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */,
 				AA11BB22CC33DD44EE55FF0F /* PostRecordingCourseSheet.swift */,
 				AA11BB22CC33DD44EE55FF10 /* TodayScheduleSheet.swift */,
 				583D250F7D3C3206A68C457D /* TasksTabView.swift */,
@@ -515,6 +524,8 @@
 				9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */,
 				V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */,
 				V2D3E4F5A6B7C8D9E0F1A2B3 /* VisualSampleProcessor.swift in Sources */,
+				P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */,
+				P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */,
 				DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */,
 				D8E2D1E55B9A1BA8C707EABF /* SettingsManager.swift in Sources */,
 				41B0935D33B02BAF56B16BA6 /* SettingsView.swift in Sources */,
@@ -559,6 +570,7 @@
 			files = (
 				CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */,
 				V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */,
+				P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

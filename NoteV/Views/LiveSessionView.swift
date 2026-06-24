@@ -162,6 +162,7 @@ struct LiveSessionView: View {
             }
 
             appState.currentSession = session
+            appState.processingWarnings = []
             appState.sessionStatus = .polishing
 
             // Navigate to session result
@@ -173,76 +174,12 @@ struct LiveSessionView: View {
                 showCourseSheet = true
             }
 
-            // Two-step generation: polish transcript → generate notes
             Task {
-                var updatedSession = session
-
-                // Step 1: Polish transcript (fast, text-only)
-                if NoteVConfig.TranscriptPolishing.enabled {
-                    do {
-                        let polisher = TranscriptPolisher()
-                        let polished = try await polisher.polish(session: session)
-
-                        updatedSession.polishedTranscript = polished
-                        appState.currentSession = updatedSession
-                        NSLog("[LiveSessionView] Transcript polished: \(polished.segments.count) segments")
-                    } catch {
-                        NSLog("[LiveSessionView] Polishing failed: \(error.localizedDescription) — timeline will show raw transcript")
-                        // Continue to note generation even if polishing fails
-                    }
-                } else {
-                    NSLog("[LiveSessionView] Transcript polishing disabled — skipping")
-                }
-
-                // Step 1.5: Slide Analysis (if enabled)
-                if NoteVConfig.SlideAnalysis.enabled && !updatedSession.frames.isEmpty {
-                    appState.sessionStatus = .analyzingSlides
-                    do {
-                        let analyzer = SlideAnalyzer()
-                        let result = try await analyzer.analyze(session: updatedSession)
-                        updatedSession.slideAnalysis = result
-                        appState.currentSession = updatedSession
-                        NSLog("[LiveSessionView] Slide analysis: \(result.uniqueSlides.count) unique slides from \(result.totalFramesProcessed) frames")
-                    } catch {
-                        NSLog("[LiveSessionView] Slide analysis failed (non-fatal): \(error.localizedDescription)")
-                    }
-                }
-
-                // Step 2: Generate AI notes (slower, multimodal)
-                appState.sessionStatus = .generatingNotes
-                do {
-                    let generator = NoteGenerator()
-                    let notes = try await generator.generateNotes(from: updatedSession)
-                    appState.generatedNotes = notes
-
-                    updatedSession.metadata.title = notes.title
-                    updatedSession.notes = notes
-                    appState.currentSession = updatedSession
-
-                    // Step 3: Extract TODOs (text-only, fast, non-fatal)
-                    if NoteVConfig.TodoExtraction.enabled {
-                        appState.sessionStatus = .extractingTodos
-                        do {
-                            let extractor = TodoExtractor()
-                            let todos = try await extractor.extract(from: updatedSession)
-                            appState.extractedTodos = todos
-                            updatedSession.todos = todos
-                            NSLog("[LiveSessionView] Extracted \(todos.count) TODOs")
-                        } catch {
-                            NSLog("[LiveSessionView] TODO extraction failed (non-fatal): \(error.localizedDescription)")
-                            updatedSession.todos = []
-                        }
-                    }
-
-                    appState.currentSession = updatedSession
-                    try SessionStore().save(session: updatedSession)
-
-                    appState.sessionStatus = .complete
-                    NSLog("[LiveSessionView] Notes generated successfully")
-                } catch {
-                    NSLog("[LiveSessionView] ERROR generating notes: \(error.localizedDescription)")
-                    appState.sessionStatus = .error(error.localizedDescription)
-                }
+                _ = await PostProcessingOrchestrator.shared.process(
+                    session: session,
+                    appState: appState,
+                    fromStage: .polishing
+                )
             }
         }
     }

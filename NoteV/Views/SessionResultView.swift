@@ -49,6 +49,8 @@ struct SessionResultView: View {
                     videoWarningBanner(warning)
                 }
 
+                ProcessingStageBanner()
+
                 // Tab picker
                 Picker("View", selection: $selectedTab) {
                     ForEach(visibleTabs, id: \.self) { tab in
@@ -99,9 +101,7 @@ struct SessionResultView: View {
         .navigationTitle(appState.currentSession?.metadata.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .navigationBarBackButtonHidden(
-            appState.sessionStatus == .polishing || appState.sessionStatus == .analyzingSlides || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos
-        )
+        .navigationBarBackButtonHidden(appState.isPostProcessing)
         .onAppear {
             if let session = appState.currentSession {
                 rawSegments = session.transcriptSegments
@@ -182,7 +182,9 @@ struct SessionResultView: View {
 
     @ViewBuilder
     private var timelineContent: some View {
-        if appState.sessionStatus == .polishing {
+        if appState.isPostProcessing {
+            processingProgressView
+        } else if appState.sessionStatus == .polishing {
             polishingProgressView
         } else if let transcript = appState.currentSession?.polishedTranscript, !transcript.segments.isEmpty {
             TranscriptTimelineView(
@@ -209,7 +211,9 @@ struct SessionResultView: View {
 
     @ViewBuilder
     private var aiNotesContent: some View {
-        if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes {
+        if appState.isPostProcessing {
+            processingProgressView
+        } else if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes {
             notesGeneratingView
         } else if let notes = appState.generatedNotes {
             TimelineNoteView(notes: notes, sessionId: appState.currentSession?.id)
@@ -228,7 +232,9 @@ struct SessionResultView: View {
 
     @ViewBuilder
     private var tasksContent: some View {
-        if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos {
+        if appState.isPostProcessing {
+            processingProgressView
+        } else if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos {
             todosExtractingView
         } else if !appState.extractedTodos.isEmpty {
             TasksTabView(
@@ -284,11 +290,31 @@ struct SessionResultView: View {
 
     private var todosProgressText: String {
         switch appState.sessionStatus {
+        case .finalizing: return "Finalizing session…"
+        case .extractingFrames: return "Extracting frames from video…"
         case .polishing: return "Polishing transcript..."
         case .analyzingSlides: return "Analyzing slides..."
         case .generatingNotes: return "Generating notes..."
         case .extractingTodos: return "Extracting action items..."
         default: return "Processing..."
+        }
+    }
+
+    // MARK: - Shared Processing Progress
+
+    private var processingProgressView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
+                .scaleEffect(1.5)
+            Text(appState.processingStageLabel ?? todosProgressText)
+                .font(.title3)
+                .fontWeight(.medium)
+                .foregroundColor(NoteVConfig.Design.textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
         }
     }
 
@@ -531,12 +557,10 @@ struct SessionResultView: View {
             // Done
             Button(action: {
                 if isBrowsingPastSession {
-                    // Pop back to session list
                     if !appState.navigationPath.isEmpty {
                         appState.navigationPath.removeLast()
                     }
                 } else {
-                    // Fresh recording — go home
                     appState.navigationPath = NavigationPath()
                     appState.reset()
                 }
@@ -553,6 +577,8 @@ struct SessionResultView: View {
                 .background(NoteVConfig.Design.accent)
                 .cornerRadius(NoteVConfig.Design.cornerRadius)
             }
+            .disabled(appState.isPostProcessing)
+            .opacity(appState.isPostProcessing ? 0.5 : 1.0)
         }
         .padding(.horizontal, NoteVConfig.Design.padding)
         .padding(.vertical, 12)
@@ -577,55 +603,17 @@ struct SessionResultView: View {
 
     private func retryGeneration() {
         guard let session = appState.currentSession else { return }
+        guard !PostProcessingOrchestrator.shared.isProcessing else { return }
         NSLog("[SessionResultView] Retrying generation pipeline")
         invalidatePDFCache()
-        appState.sessionStatus = .polishing
+        appState.processingWarnings = []
 
         Task {
-            do {
-                var updated = session
-
-                // Re-polish
-                if NoteVConfig.TranscriptPolishing.enabled {
-                    let polisher = TranscriptPolisher()
-                    let polished = try await polisher.polish(session: session)
-                    updated.polishedTranscript = polished
-                    appState.currentSession = updated
-                }
-
-                // Generate notes
-                appState.sessionStatus = .generatingNotes
-                let generator = NoteGenerator()
-                let notes = try await generator.generateNotes(from: updated)
-                appState.generatedNotes = notes
-
-                updated.metadata.title = notes.title
-                updated.notes = notes
-
-                // Extract TODOs (non-fatal)
-                if NoteVConfig.TodoExtraction.enabled {
-                    appState.sessionStatus = .extractingTodos
-                    do {
-                        let extractor = TodoExtractor()
-                        let todos = try await extractor.extract(from: updated)
-                        appState.extractedTodos = todos
-                        updated.todos = todos
-                        NSLog("[SessionResultView] Retry extracted \(todos.count) TODOs")
-                    } catch {
-                        NSLog("[SessionResultView] TODO extraction failed (non-fatal): \(error.localizedDescription)")
-                        updated.todos = []
-                    }
-                }
-
-                appState.currentSession = updated
-                try SessionStore().save(session: updated)
-
-                appState.sessionStatus = .complete
-                NSLog("[SessionResultView] Retry succeeded")
-            } catch {
-                NSLog("[SessionResultView] Retry failed: \(error.localizedDescription)")
-                appState.sessionStatus = .error(error.localizedDescription)
-            }
+            _ = await PostProcessingOrchestrator.shared.process(
+                session: session,
+                appState: appState,
+                fromStage: .polishing
+            )
         }
     }
 

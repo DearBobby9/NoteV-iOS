@@ -129,6 +129,23 @@ enum NoteVConfig {
         static let sharpnessThreshold: Double = 50.0
     }
 
+    // MARK: - Frame Extraction (post-stop from MP4)
+
+    enum FrameExtraction {
+        /// Whether to extract authoritative frames from session.mp4 after recording (PR2)
+        static let enabled: Bool = false
+        /// Max candidate frames before pHash dedup
+        static let maxCandidateFrames: Int = 250
+        /// Base periodic sampling interval during extraction (seconds)
+        static let baseSamplingInterval: TimeInterval = 5.0
+        /// Minimum interval in transcript-dense windows (seconds)
+        static let denseWindowMinInterval: TimeInterval = 1.0
+        /// Words per minute above which a window is considered dense
+        static let denseWordsPerMinuteThreshold: Double = 120
+        /// Coarse scan interval for scene-change detection (seconds)
+        static let coarseScanInterval: TimeInterval = 2.0
+    }
+
     // MARK: - Chat Voice (Deepgram for chat input)
 
     enum ChatVoice {

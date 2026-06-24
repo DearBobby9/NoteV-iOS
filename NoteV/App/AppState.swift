@@ -9,12 +9,35 @@ enum SessionStatus: Equatable {
     case starting
     case recording
     case stopping
+    case finalizing          // Validating session artifacts after stop
+    case extractingFrames    // MP4 frame extraction in progress
     case polishing          // Transcript polishing in progress
     case generatingNotes
     case extractingTodos    // TODO extraction in progress
     case analyzingSlides    // Slide analysis in progress
     case complete
     case error(String)
+
+    var isPostProcessing: Bool {
+        switch self {
+        case .finalizing, .extractingFrames, .polishing, .analyzingSlides, .generatingNotes, .extractingTodos:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var processingStageLabel: String? {
+        switch self {
+        case .finalizing: return PostProcessingStage.finalizing.displayName
+        case .extractingFrames: return PostProcessingStage.extractingFrames.displayName
+        case .polishing: return PostProcessingStage.polishing.displayName
+        case .analyzingSlides: return PostProcessingStage.analyzingSlides.displayName
+        case .generatingNotes: return PostProcessingStage.generatingNotes.displayName
+        case .extractingTodos: return PostProcessingStage.extractingTodos.displayName
+        default: return nil
+        }
+    }
 }
 
 // MARK: - CaptureSourceStatus
@@ -76,6 +99,9 @@ final class AppState: ObservableObject {
     /// Non-nil when session video was skipped or failed; shown as a banner in SessionResultView.
     @Published var videoRecordingWarning: String?
 
+    /// Non-fatal warnings from the last post-processing run (e.g. polish skipped).
+    @Published var processingWarnings: [String] = []
+
     // MARK: - Past Sessions
 
     @Published var pastSessions: [SessionData] = []
@@ -84,6 +110,14 @@ final class AppState: ObservableObject {
 
     var isRecording: Bool {
         sessionStatus == .recording
+    }
+
+    var isPostProcessing: Bool {
+        sessionStatus.isPostProcessing
+    }
+
+    var processingStageLabel: String? {
+        sessionStatus.processingStageLabel
     }
 
     var isGlassesAvailable: Bool {
@@ -116,6 +150,7 @@ final class AppState: ObservableObject {
         autoBookmarkCount = 0
         latestAutoBookmarkPhrase = nil
         videoRecordingWarning = nil
+        processingWarnings = []
         NSLog("[AppState] State reset to idle")
     }
 }
