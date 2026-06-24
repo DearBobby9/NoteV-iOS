@@ -187,4 +187,9 @@ final class CaptureManager: ObservableObject {
         await activeProvider?.stopCapture()
         NSLog("[CaptureManager] Capture stopped")
     }
+
+    /// Drain in-flight capture buffers before finalizing MP4.
+    func flushPendingSamples() async {
+        await activeProvider?.flushPendingSamples()
+    }
 }

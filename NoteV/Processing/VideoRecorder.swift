@@ -28,6 +28,7 @@ final class VideoRecorder: @unchecked Sendable {
     private var audioInput: AVAssetWriterInput?
     private var outputURL: URL?
     private var sessionStarted = false
+    private var audioSamplesAppended = 0
 
     // MARK: - Lifecycle
 
@@ -45,6 +46,24 @@ final class VideoRecorder: @unchecked Sendable {
             sessionStarted = false
             videoInput = nil
             audioInput = nil
+            audioSamplesAppended = 0
+
+            // Audio track must exist before startWriting() — video samples usually arrive first.
+            let audioSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 128_000
+            ]
+            let audioIn = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+            audioIn.expectsMediaDataInRealTime = true
+            guard writer.canAdd(audioIn) else {
+                throw VideoRecorderError.writerFailed("cannot add audio track")
+            }
+            writer.add(audioIn)
+            audioInput = audioIn
+            NSLog("[VideoRecorder] Audio track pre-configured — 48000Hz 1ch AAC")
+
             NSLog("[VideoRecorder] Started — output: \(url.lastPathComponent)")
         }
     }
@@ -89,6 +108,10 @@ final class VideoRecorder: @unchecked Sendable {
                 self.videoInput?.markAsFinished()
                 self.audioInput?.markAsFinished()
 
+                if self.audioSamplesAppended == 0 {
+                    NSLog("[VideoRecorder] WARNING: Audio track configured but no audio samples were muxed")
+                }
+
                 writer.finishWriting {
                     let status = writer.status
                     let errorMessage = writer.error?.localizedDescription ?? "unknown"
@@ -120,10 +143,20 @@ final class VideoRecorder: @unchecked Sendable {
             }
 
             let input = mediaType == .video ? videoInput : audioInput
-            guard let input, input.isReadyForMoreMediaData else { return }
+            guard let input else { return }
+            guard input.isReadyForMoreMediaData else {
+                if mediaType == .audio {
+                    NSLog("[VideoRecorder] Audio input not ready — sample dropped")
+                }
+                return
+            }
 
             if !input.append(sampleBuffer) {
                 throw VideoRecorderError.writerFailed("append returned false for \(mediaType.rawValue)")
+            }
+
+            if mediaType == .audio {
+                audioSamplesAppended += 1
             }
         } catch {
             NSLog("[VideoRecorder] ERROR appending \(mediaType.rawValue): \(error.localizedDescription)")
@@ -152,19 +185,14 @@ final class VideoRecorder: @unchecked Sendable {
             videoInput = input
         }
 
-        if mediaType == .audio, audioInput == nil {
-            let input = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
-            input.expectsMediaDataInRealTime = true
-            guard writer.canAdd(input) else {
-                throw VideoRecorderError.writerFailed("cannot add audio track")
-            }
-            writer.add(input)
-            audioInput = input
-        }
+        // Audio input is pre-configured in startRecording().
     }
 
     private func startSessionIfNeeded(with sampleBuffer: CMSampleBuffer) throws {
         guard let writer = assetWriter, !sessionStarted else { return }
+        // Wait for the video track before starting — audio may arrive first on glasses.
+        guard videoInput != nil else { return }
+
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         guard writer.startWriting() else {
             throw VideoRecorderError.writerFailed(writer.error?.localizedDescription ?? "startWriting failed")
@@ -179,5 +207,6 @@ final class VideoRecorder: @unchecked Sendable {
         audioInput = nil
         outputURL = nil
         sessionStarted = false
+        audioSamplesAppended = 0
     }
 }

@@ -234,7 +234,8 @@ final class SessionRecorder: ObservableObject {
         frameCollectorTask = nil
         NSLog("[SessionRecorder] Collector tasks drained")
 
-        // 8. Drain processor + recorder queues before finishing MP4
+        // 8. Drain capture + processor + recorder queues before finishing MP4
+        await captureManager.flushPendingSamples()
         if let processor = visualSampleProcessor {
             await processor.flushAndWait()
         }

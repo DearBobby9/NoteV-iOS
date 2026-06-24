@@ -15,6 +15,8 @@ final class VisualSampleProcessor: @unchecked Sendable {
     var videoRecorder: VideoRecorder?
 
     private var sessionStartPTS: CMTime?
+    /// Maps wall-clock session time to glasses video PTS for audio mux alignment.
+    private var mediaTimeAnchor: (wallSeconds: TimeInterval, mediaPTS: CMTime)?
     private var frameIndex = 0
     private var lastYieldTime: TimeInterval = -999
     private var samplingInterval: TimeInterval = NoteVConfig.Frame.periodicSamplingInterval
@@ -39,6 +41,7 @@ final class VisualSampleProcessor: @unchecked Sendable {
     func reset() {
         queue.sync {
             sessionStartPTS = nil
+            mediaTimeAnchor = nil
             frameIndex = 0
             lastYieldTime = -999
             samplingInterval = NoteVConfig.Frame.periodicSamplingInterval
@@ -78,6 +81,31 @@ final class VisualSampleProcessor: @unchecked Sendable {
         }
     }
 
+    /// Muxes a capture-session audio sample into the session MP4 (phone path).
+    func processAudioSample(_ sampleBuffer: CMSampleBuffer) {
+        queue.async { [weak self] in
+            self?.processAudioSampleOnQueue(sampleBuffer)
+        }
+    }
+
+    /// Muxes glasses mic PCM into the session MP4 with PTS aligned to the video stream.
+    func processAudioPCM(data: Data, sessionRelativeTime: TimeInterval) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let presentationTime = self.makeAudioPresentationTime(sessionRelativeTime: sessionRelativeTime)
+            guard let sampleBuffer = AudioSampleBufferFactory.makePCMSampleBuffer(
+                data: data,
+                sampleRate: Double(NoteVConfig.Audio.sampleRate),
+                channels: UInt32(NoteVConfig.Audio.channels),
+                presentationTime: presentationTime
+            ) else {
+                NSLog("[VisualSampleProcessor] ERROR: Could not build audio sample buffer")
+                return
+            }
+            self.processAudioSampleOnQueue(sampleBuffer)
+        }
+    }
+
     // MARK: - Timebase (testable)
 
     static func sessionTimestamp(presentationTime: CMTime, sessionStart: CMTime) -> TimeInterval {
@@ -87,6 +115,11 @@ final class VisualSampleProcessor: @unchecked Sendable {
     // MARK: - Private
 
     private func processVideoSampleOnQueue(_ sampleBuffer: CMSampleBuffer) {
+        let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if mediaTimeAnchor == nil {
+            mediaTimeAnchor = (0, pts)
+        }
+
         videoRecorder?.appendVideo(sampleBuffer)
 
         guard let sessionTime = presentationTimeOnQueue(for: sampleBuffer) else { return }
@@ -113,6 +146,21 @@ final class VisualSampleProcessor: @unchecked Sendable {
         )
 
         frameContinuation?.yield(frame)
+    }
+
+    private func processAudioSampleOnQueue(_ sampleBuffer: CMSampleBuffer) {
+        _ = presentationTimeOnQueue(for: sampleBuffer)
+        videoRecorder?.appendAudio(sampleBuffer)
+    }
+
+    private func makeAudioPresentationTime(sessionRelativeTime: TimeInterval) -> CMTime {
+        if let anchor = mediaTimeAnchor {
+            return CMTimeAdd(
+                anchor.mediaPTS,
+                CMTime(seconds: sessionRelativeTime, preferredTimescale: 600)
+            )
+        }
+        return CMTime(seconds: sessionRelativeTime, preferredTimescale: 600)
     }
 
     private func establishTimebaseIfNeededOnQueue(for sampleBuffer: CMSampleBuffer) {

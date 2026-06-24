@@ -213,6 +213,40 @@ final class VideoPipelineTests: XCTestCase {
         try? FileManager.default.removeItem(at: tempURL)
     }
 
+    func testVideoRecorderMuxesAudioTrack() async throws {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notev-test-\(UUID().uuidString).mp4")
+
+        let recorder = VideoRecorder()
+        try recorder.startRecording(to: tempURL)
+
+        let videoBuffer = makeVideoSampleBuffer(presentationTime: CMTime(seconds: 0, preferredTimescale: 600))
+        recorder.appendVideo(videoBuffer)
+
+        let pcm = Data(repeating: 0, count: 3200)
+        guard let audioBuffer = AudioSampleBufferFactory.makePCMSampleBuffer(
+            data: pcm,
+            sampleRate: 16_000,
+            channels: 1,
+            presentationTime: CMTime(seconds: 0, preferredTimescale: 600)
+        ) else {
+            XCTFail("Could not build audio sample buffer")
+            return
+        }
+        recorder.appendAudio(audioBuffer)
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        let result = try await recorder.finishRecording()
+        XCTAssertNotNil(result)
+
+        let asset = AVURLAsset(url: tempURL)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        XCTAssertEqual(audioTracks.count, 1)
+
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
     // MARK: - SessionStore
 
     func testSessionStoreVideoURL() {

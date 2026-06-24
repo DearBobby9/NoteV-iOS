@@ -208,6 +208,10 @@ final class GlassesCaptureProvider: CaptureProvider {
         NSLog("[GlassesCaptureProvider] Capture stopped")
     }
 
+    func flushPendingSamples() async {
+        await visualSampleProcessor?.flushAndWait()
+    }
+
     func capturePhoto() async throws -> Data {
         NSLog("[GlassesCaptureProvider] capturePhoto() called")
 
@@ -278,6 +282,8 @@ final class GlassesCaptureProvider: CaptureProvider {
                 timestamp = 0
             }
             let duration = Double(convertedBuffer.frameLength) / targetFormat.sampleRate
+
+            self?.videoIngressProcessor?.processAudioPCM(data: data, sessionRelativeTime: timestamp)
 
             audioCont?.yield(AudioChunk(timestamp: timestamp, data: data, duration: duration))
         }

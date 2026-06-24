@@ -21,6 +21,9 @@ protocol CaptureProvider: AnyObject {
     /// Stop all capture streams
     func stopCapture() async
 
+    /// Drain in-flight sample buffers before finalizing the session MP4.
+    func flushPendingSamples() async
+
     /// Capture a single high-resolution photo (used for bookmarks)
     func capturePhoto() async throws -> Data
 

@@ -272,6 +272,8 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
         NSLog("[PhoneCaptureProvider] stopCapture() called")
         acceptingSamples = false
 
+        await flushPendingSamples()
+
         await performOnVideoQueue {
             self.captureSession.stopRunning()
         }
@@ -282,6 +284,14 @@ final class PhoneCaptureProvider: NSObject, CaptureProvider {
         audioConverter = nil
         audioTargetFormat = nil
         NSLog("[PhoneCaptureProvider] Capture stopped")
+    }
+
+    func flushPendingSamples() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            audioQueue.async {
+                continuation.resume()
+            }
+        }
     }
 
     func capturePhoto() async throws -> Data {
@@ -330,7 +340,7 @@ extension PhoneCaptureProvider: AVCaptureVideoDataOutputSampleBufferDelegate, AV
             guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
 
             let timestamp = visualSampleProcessor?.establishTimebaseIfNeeded(for: sampleBuffer) ?? 0
-            videoRecorder?.appendAudio(sampleBuffer)
+            visualSampleProcessor?.processAudioSample(sampleBuffer)
 
             if let chunk = makeAudioChunk(from: sampleBuffer, timestamp: timestamp) {
                 audioContinuation?.yield(chunk)
