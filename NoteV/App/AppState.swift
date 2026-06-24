@@ -87,6 +87,8 @@ final class AppState: ObservableObject {
     // MARK: - Live Session Data
 
     @Published var transcriptSegments: [TranscriptSegment] = []
+    /// Shown in the live transcript panel when no segments have arrived yet.
+    @Published var liveTranscriptHint: String?
     @Published var frameCount: Int = 0
     @Published var bookmarkCount: Int = 0
     @Published var elapsedTime: TimeInterval = 0
@@ -140,6 +142,7 @@ final class AppState: ObservableObject {
         sessionStatus = .idle
         currentSession = nil
         generatedNotes = nil
+        liveTranscriptHint = nil
         transcriptSegments = []
         frameCount = 0
         bookmarkCount = 0

@@ -12,7 +12,7 @@ struct TranscriptScrollView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if appState.transcriptSegments.isEmpty {
-                        Text("Listening...")
+                        Text(appState.liveTranscriptHint ?? "Listening…")
                             .font(.body)
                             .foregroundColor(NoteVConfig.Design.textSecondary)
                             .italic()

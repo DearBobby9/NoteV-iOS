@@ -34,6 +34,7 @@ final class AudioPipeline {
 
     // Deepgram transcript bridge task
     private var deepgramBridgeTask: Task<Void, Never>?
+    private var deepgramConnectTask: Task<DeepgramService?, Never>?
 
     /// Eagerly initialized transcript stream (thread-safe, no lazy var hazard)
     let transcriptStream: AsyncStream<TranscriptSegment>
@@ -62,7 +63,12 @@ final class AudioPipeline {
         case .appleSpeech:
             await startAppleSpeechProcessing(audioStream: audioStream)
         case .deepgram:
-            await startDeepgramProcessing(audioStream: audioStream)
+            if NetworkConditions.isOnCellular {
+                NSLog("[AudioPipeline] Cellular network — using Apple Speech for live transcript")
+                await startAppleSpeechProcessing(audioStream: audioStream)
+            } else {
+                await startDeepgramProcessing(audioStream: audioStream)
+            }
         }
     }
 
@@ -70,6 +76,8 @@ final class AudioPipeline {
     func endAudioInput() {
         NSLog("[AudioPipeline] endAudioInput() called — provider: \(NoteVConfig.Audio.sttProvider.rawValue)")
         isProcessing = false
+        deepgramConnectTask?.cancel()
+        deepgramConnectTask = nil
 
         switch NoteVConfig.Audio.sttProvider {
         case .appleSpeech:
@@ -144,6 +152,7 @@ final class AudioPipeline {
             guard await self.connectDeepgramWithRetry(maxAttempts: 3, coordinator: coordinator) else { return nil }
             return self.deepgramService
         }
+        deepgramConnectTask = connectTask
 
         for await chunk in audioStream {
             guard isProcessing else { break }
@@ -191,6 +200,7 @@ final class AudioPipeline {
 
     private func connectDeepgramWithRetry(maxAttempts: Int, coordinator: DeepgramFeedCoordinator) async -> Bool {
         for attempt in 1...maxAttempts {
+            if Task.isCancelled || !isProcessing { return false }
             let service = DeepgramService()
             deepgramService = service
 

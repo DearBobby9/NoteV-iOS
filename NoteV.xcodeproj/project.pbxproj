@@ -29,6 +29,7 @@
 		6B24661D8255645208F4A795 /* NoteParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5AD5190EAB735441675978 /* NoteParser.swift */; };
 		6FE7180C6E30852EEF0E5714 /* NoteVConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CB120F65D657FAEF4FFFD0E /* NoteVConfig.swift */; };
 		71F748C979DD6E38A07183F5 /* DeepgramService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */; };
+		N1E2T3W4O5R6K7C8O9N0D1S2 /* NetworkConditions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N1E2T3W4O5R6K7C8O9N0D1S1 /* NetworkConditions.swift */; };
 		73E4CBC73A172F3621788948 /* LiveSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96CA893D021C3317C8A2BC5 /* LiveSessionView.swift */; };
 		7772E519ACA8F25B89B76CCA /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */; };
 		7A8EA1803E62779933FA0AA8 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F085C176BFB0A39B7017680 /* Bookmark.swift */; };
@@ -134,6 +135,7 @@
 		88A02E25F4BE74BB80C3AE02 /* PhoneCaptureProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneCaptureProvider.swift; sourceTree = "<group>"; };
 		8A4F215A20E712B3C9653B3E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepgramService.swift; sourceTree = "<group>"; };
+		N1E2T3W4O5R6K7C8O9N0D1S1 /* NetworkConditions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkConditions.swift; sourceTree = "<group>"; };
 		8EA12D6BFFADBCCFA2C0BC41 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8F5AD5190EAB735441675978 /* NoteParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteParser.swift; sourceTree = "<group>"; };
 		9AF0CC94CD5526C5BE7AFDF0 /* TodoParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoParser.swift; sourceTree = "<group>"; };
@@ -273,6 +275,7 @@
 				DD11EE22FF33AA44BB55CC02 /* DeepgramVoiceService.swift */,
 				DD11EE22FF33AA44BB55CC03 /* UnifiedChatService.swift */,
 				8C1293EA43F09ACA8C1D9964 /* DeepgramService.swift */,
+				N1E2T3W4O5R6K7C8O9N0D1S1 /* NetworkConditions.swift */,
 				EBAF8405C002ECBB5D0F55D7 /* LLMService.swift */,
 				B992699292F9CFD5BD642BAA /* ReminderSyncService.swift */,
 			);
@@ -523,6 +526,7 @@
 				DE75495729E27E32521FCCD0 /* CaptureManager.swift in Sources */,
 				874B73227021ED236318CCDF /* CaptureProvider.swift in Sources */,
 				71F748C979DD6E38A07183F5 /* DeepgramService.swift in Sources */,
+				N1E2T3W4O5R6K7C8O9N0D1S2 /* NetworkConditions.swift in Sources */,
 				39438970A6DC57B79D351745 /* FramePipeline.swift in Sources */,
 				5BEB5FD6F8763E8C7CF99ACD /* FrameThumbnailView.swift in Sources */,
 				AAEA224B9B7ACE3A17000248 /* GlassesCaptureProvider.swift in Sources */,

@@ -89,8 +89,11 @@ final class SessionTranscriptExtractor {
             let audioURL = try await exportAudio(from: videoURL)
             defer { try? FileManager.default.removeItem(at: audioURL) }
             let data = try Data(contentsOf: audioURL)
+            guard data.count >= 2048 else {
+                throw ExtractionError.audioExportFailed("Exported audio too small (\(data.count) bytes)")
+            }
             NSLog("[SessionTranscriptExtractor] Extracted \(data.count) bytes of audio from MP4")
-            return (data, "audio/mp4")
+            return (data, "audio/m4a")
         } catch {
             NSLog("[SessionTranscriptExtractor] Audio export failed — uploading full MP4: \(error.localizedDescription)")
             let data = try Data(contentsOf: videoURL)

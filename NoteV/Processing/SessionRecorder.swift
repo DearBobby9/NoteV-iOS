@@ -95,6 +95,12 @@ final class SessionRecorder: ObservableObject {
 
         appState?.sessionStatus = .recording
 
+        if NoteVConfig.Audio.sttProvider == .deepgram && NetworkConditions.isOnCellular {
+            appState?.liveTranscriptHint = "Transcribing on-device (cellular)…"
+        } else {
+            appState?.liveTranscriptHint = "Connecting to live transcription…"
+        }
+
         let processor = VisualSampleProcessor()
 
         appState?.videoRecordingWarning = nil
@@ -359,6 +365,9 @@ final class SessionRecorder: ObservableObject {
 
                 // Update UI on main actor
                 self.appState?.transcriptSegments.append(segment)
+                if self.appState?.liveTranscriptHint != nil {
+                    self.appState?.liveTranscriptHint = nil
+                }
 
                 // Smart bookmark detection — only on final segments
                 if NoteVConfig.SmartBookmark.enabled && segment.isFinal {
