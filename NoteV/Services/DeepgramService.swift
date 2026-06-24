@@ -76,6 +76,12 @@ actor DeepgramService {
     /// Signal for CloseStream completion
     private var disconnectContinuation: CheckedContinuation<Void, Never>?
 
+    /// Whether server Metadata has confirmed the connection
+    private var hasReceivedMetadata = false
+
+    /// Signals when server Metadata confirms the WebSocket is ready for audio.
+    private var metadataReadyContinuation: CheckedContinuation<Void, Never>?
+
     /// Eagerly initialized transcript stream (thread-safe, no lazy var hazard)
     nonisolated let transcriptStream: AsyncStream<TranscriptSegment>
 
@@ -121,13 +127,18 @@ actor DeepgramService {
         webSocketTask = session.webSocketTask(with: request)
         webSocketTask?.resume()
 
-        isConnected = true
         lastAudioSendTime = Date()
+        hasReceivedMetadata = false
 
         NSLog("[DeepgramService] WebSocket connection initiated — model: \(NoteVConfig.Audio.deepgramModel)")
 
         startReceiveLoop()
         startKeepAliveTimer()
+
+        // Do not send audio until Metadata confirms the connection is ready (critical on LTE).
+        try await waitForMetadataReady(timeoutNanoseconds: 10_000_000_000)
+        isConnected = true
+        NSLog("[DeepgramService] Connection ready — Metadata received")
     }
 
     // MARK: - Send Audio
@@ -173,7 +184,7 @@ actor DeepgramService {
         }
 
         // Brief drain period to let receive loop process any final messages
-        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
 
         NSLog("[DeepgramService] CloseStream acknowledged or timed out")
     }
@@ -194,6 +205,9 @@ actor DeepgramService {
 
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+
+        metadataReadyContinuation?.resume()
+        metadataReadyContinuation = nil
 
         transcriptContinuation.finish()
 
@@ -259,6 +273,9 @@ actor DeepgramService {
                 handleResultsMessage(response)
             case "Metadata":
                 NSLog("[DeepgramService] Metadata received — connection confirmed")
+                hasReceivedMetadata = true
+                metadataReadyContinuation?.resume()
+                metadataReadyContinuation = nil
             case "UtteranceEnd":
                 NSLog("[DeepgramService] UtteranceEnd received")
             case "SpeechStarted":
@@ -344,18 +361,43 @@ actor DeepgramService {
     }
 
     private func handleConnectionLost() {
-        guard isConnected else { return } // Idempotent
+        guard isConnected || metadataReadyContinuation != nil else { return }
         NSLog("[DeepgramService] Connection lost")
         isConnected = false
 
         keepAliveTask?.cancel()
         keepAliveTask = nil
 
-        // Signal anyone waiting for disconnect
         disconnectContinuation?.resume()
         disconnectContinuation = nil
 
-        // Don't finish transcriptContinuation here — AudioPipeline controls that lifecycle
+        metadataReadyContinuation?.resume()
+        metadataReadyContinuation = nil
+    }
+
+    private func waitForMetadataReady(timeoutNanoseconds: UInt64) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { [weak self] in
+                await self?.waitForMetadataSignal()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                throw DeepgramError.connectionFailed("Timed out waiting for Deepgram Metadata")
+            }
+            try await group.next()
+            group.cancelAll()
+        }
+    }
+
+    private func waitForMetadataSignal() async {
+        guard !hasReceivedMetadata else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            if hasReceivedMetadata {
+                continuation.resume()
+            } else {
+                metadataReadyContinuation = continuation
+            }
+        }
     }
 
     private func waitForDisconnectSignal() async {

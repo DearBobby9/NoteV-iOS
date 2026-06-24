@@ -23,14 +23,18 @@ struct ProcessingStageBanner: View {
             .padding(.horizontal, NoteVConfig.Design.padding)
             .padding(.top, 8)
         } else if !appState.processingWarnings.isEmpty, appState.sessionStatus == .complete {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                Text(appState.processingWarnings.joined(separator: " "))
-                    .font(.caption)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(appState.processingWarnings.enumerated()), id: \.offset) { _, warning in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: warningIcon(for: warning))
+                            .foregroundColor(warningColor(for: warning))
+                        Text(warning)
+                            .font(.subheadline)
+                            .foregroundColor(NoteVConfig.Design.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                }
             }
             .padding(12)
             .background(NoteVConfig.Design.surface)
@@ -38,6 +42,20 @@ struct ProcessingStageBanner: View {
             .padding(.horizontal, NoteVConfig.Design.padding)
             .padding(.top, 8)
         }
+    }
+
+    private func warningIcon(for message: String) -> String {
+        if message.localizedCaseInsensitiveContains("failed") {
+            return "exclamationmark.triangle.fill"
+        }
+        return "info.circle.fill"
+    }
+
+    private func warningColor(for message: String) -> Color {
+        if message.localizedCaseInsensitiveContains("failed") {
+            return .orange
+        }
+        return NoteVConfig.Design.textSecondary
     }
 }
 

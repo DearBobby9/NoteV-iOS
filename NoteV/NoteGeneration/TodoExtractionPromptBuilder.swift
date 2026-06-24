@@ -63,17 +63,19 @@ enum TodoExtractionPromptBuilder {
 
     // MARK: - Build Prompt
 
-    /// Build the user prompt from a session's polished transcript.
-    /// Falls back to raw transcript if polished is unavailable.
+    /// Build the user prompt from transcript or, when unavailable, generated notes.
     static func buildPrompt(session: SessionData) -> String {
         let sessionDate = session.metadata.startDate
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd (EEEE)"
         let dateString = dateFormatter.string(from: sessionDate)
 
-        let transcriptText: String
+        let sourceLabel: String
+        let sourceText: String
+
         if let polished = session.polishedTranscript, !polished.segments.isEmpty {
-            transcriptText = polished.segments
+            sourceLabel = "TRANSCRIPT"
+            sourceText = polished.segments
                 .sorted { $0.startTime < $1.startTime }
                 .map { segment in
                     let minutes = Int(segment.startTime) / 60
@@ -82,25 +84,47 @@ enum TodoExtractionPromptBuilder {
                 }
                 .joined(separator: "\n")
         } else {
-            transcriptText = session.transcriptSegments
+            let rawSegments = session.transcriptSegments
                 .filter { $0.isFinal && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
                 .sorted { $0.startTime < $1.startTime }
-                .map { segment in
-                    let minutes = Int(segment.startTime) / 60
-                    let seconds = Int(segment.startTime) % 60
-                    return "[\(String(format: "%02d:%02d", minutes, seconds))] \(segment.text)"
-                }
-                .joined(separator: "\n")
+
+            if !rawSegments.isEmpty {
+                sourceLabel = "TRANSCRIPT"
+                sourceText = rawSegments
+                    .map { segment in
+                        let minutes = Int(segment.startTime) / 60
+                        let seconds = Int(segment.startTime) % 60
+                        return "[\(String(format: "%02d:%02d", minutes, seconds))] \(segment.text)"
+                    }
+                    .joined(separator: "\n")
+            } else if let notes = session.notes {
+                sourceLabel = "LECTURE NOTES"
+                sourceText = notesAsPlainText(notes)
+            } else {
+                sourceLabel = "TRANSCRIPT"
+                sourceText = ""
+            }
         }
 
         return """
         Session date: \(dateString)
         Session title: \(session.metadata.title)
 
-        TRANSCRIPT:
-        \(transcriptText)
+        \(sourceLabel):
+        \(sourceText)
 
-        Extract all student action items from this lecture transcript. Return JSON only.
+        Extract all student action items from this lecture content. Return JSON only.
         """
+    }
+
+    private static func notesAsPlainText(_ notes: StructuredNotes) -> String {
+        var parts: [String] = [notes.title, notes.summary]
+        for section in notes.sections {
+            parts.append("\(section.title)\n\(section.content)")
+        }
+        if !notes.keyTakeaways.isEmpty {
+            parts.append("Key Takeaways:\n" + notes.keyTakeaways.map { "• \($0)" }.joined(separator: "\n"))
+        }
+        return parts.joined(separator: "\n\n")
     }
 }

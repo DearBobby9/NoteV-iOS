@@ -221,10 +221,10 @@ final class SessionRecorder: ObservableObject {
         audioPipeline.endAudioInput()
 
         // 5. Wait for terminal recognition callback (with timeout fallback)
-        await audioPipeline.waitForFinalResult(timeoutNanoseconds: 2_000_000_000)
+        await audioPipeline.waitForFinalResult(timeoutNanoseconds: 5_000_000_000)
 
         // 6. Now safe to finish output streams → collectors' for-await loops exit
-        audioPipeline.finishOutputStream()
+        await audioPipeline.finishOutputStream()
         framePipeline.stop()
 
         // 7. Await collectors — they drain remaining buffered items

@@ -34,21 +34,27 @@ final class TodoExtractor {
 
     // MARK: - Extract
 
-    /// Extract action items from a session's transcript.
-    /// Uses polished transcript if available, falls back to raw transcript.
+    /// Extract action items from a session's transcript, falling back to generated notes when needed.
     func extract(from session: SessionData) async throws -> [TodoItem] {
-        // Verify we have transcript content
         let hasPolished = session.polishedTranscript != nil && !(session.polishedTranscript?.segments.isEmpty ?? true)
         let hasRaw = !session.transcriptSegments.filter({ $0.isFinal }).isEmpty
+        let hasNotes = session.notes != nil
 
-        guard hasPolished || hasRaw else {
-            NSLog("[TodoExtractor] No transcript available — skipping extraction")
+        guard hasPolished || hasRaw || hasNotes else {
+            NSLog("[TodoExtractor] No transcript or notes available — skipping extraction")
             throw TodoExtractError.noTranscript
         }
 
-        NSLog("[TodoExtractor] Extracting TODOs — source: \(hasPolished ? "polished" : "raw") transcript")
+        let source: String
+        if hasPolished {
+            source = "polished transcript"
+        } else if hasRaw {
+            source = "raw transcript"
+        } else {
+            source = "generated notes"
+        }
+        NSLog("[TodoExtractor] Extracting TODOs — source: \(source)")
 
-        // Build prompt (text-only, no images needed)
         let userPrompt = TodoExtractionPromptBuilder.buildPrompt(session: session)
         NSLog("[TodoExtractor] Prompt built — \(userPrompt.count) chars")
 

@@ -105,7 +105,7 @@ final class AudioPipeline {
     }
 
     /// Phase 2: Cancel recognition and finish the transcript stream.
-    func finishOutputStream() {
+    func finishOutputStream() async {
         switch NoteVConfig.Audio.sttProvider {
         case .appleSpeech:
             recognitionTask?.cancel()
@@ -118,9 +118,8 @@ final class AudioPipeline {
         case .deepgram:
             deepgramBridgeTask?.cancel()
             deepgramBridgeTask = nil
-            // disconnect is actor-isolated; fire-and-forget via Task
             if let service = deepgramService {
-                Task { await service.disconnect() }
+                await service.disconnect()
             }
             deepgramService = nil
             transcriptContinuation.finish()
@@ -132,7 +131,7 @@ final class AudioPipeline {
     func stop() {
         NSLog("[AudioPipeline] stop() called")
         endAudioInput()
-        finishOutputStream()
+        Task { await finishOutputStream() }
     }
 
     // MARK: - Deepgram Processing

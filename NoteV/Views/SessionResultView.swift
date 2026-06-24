@@ -523,56 +523,42 @@ struct SessionResultView: View {
     // MARK: - Action Bar
 
     private var actionBar: some View {
-        HStack(spacing: 16) {
-            // Share text (only when notes available)
-            if let notes = appState.generatedNotes {
-                ShareLink(item: notesAsText(notes)) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Text")
-                    }
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .foregroundColor(NoteVConfig.Design.accent)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(NoteVConfig.Design.surface)
-                    .cornerRadius(NoteVConfig.Design.cornerRadius)
-                }
+        VStack(spacing: 10) {
+            if appState.generatedNotes != nil || (appState.sessionStatus == .complete && !appState.isPostProcessing) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        if let notes = appState.generatedNotes {
+                            ShareLink(item: notesAsText(notes)) {
+                                actionBarButton(icon: "square.and.arrow.up", label: "Share")
+                            }
 
-                // PDF
-                if let url = currentPDFURL(for: notes) {
-                    ShareLink(item: url) {
-                        pdfButtonLabel
+                            if let url = currentPDFURL(for: notes) {
+                                ShareLink(item: url) {
+                                    actionBarButton(icon: "doc.richtext", label: "PDF")
+                                }
+                            } else {
+                                Button(action: { generatePDF(notes: notes) }) {
+                                    actionBarButton(icon: "doc.richtext", label: "PDF")
+                                }
+                            }
+                        }
+
+                        if appState.sessionStatus == .complete, !appState.isPostProcessing {
+                            let canReprocess = appState.currentSession?.canReprocess ?? false
+                            Button(action: { reprocessSession() }) {
+                                actionBarButton(
+                                    icon: "arrow.clockwise",
+                                    label: "Reprocess",
+                                    accent: canReprocess
+                                )
+                            }
+                            .disabled(!canReprocess)
+                        }
                     }
-                } else {
-                    Button(action: { generatePDF(notes: notes) }) {
-                        pdfButtonLabel
-                    }
+                    .padding(.horizontal, NoteVConfig.Design.padding)
                 }
             }
 
-            Spacer()
-
-            if appState.sessionStatus == .complete, !appState.isPostProcessing {
-                let canReprocess = appState.currentSession?.canReprocess ?? false
-                Button(action: { reprocessSession() }) {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Reprocess")
-                    }
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .foregroundColor(canReprocess ? NoteVConfig.Design.accent : NoteVConfig.Design.textSecondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(NoteVConfig.Design.surface)
-                    .cornerRadius(NoteVConfig.Design.cornerRadius)
-                }
-                .disabled(!canReprocess)
-            }
-
-            // Done
             Button(action: {
                 if isBrowsingPastSession {
                     if !appState.navigationPath.isEmpty {
@@ -583,38 +569,40 @@ struct SessionResultView: View {
                     appState.reset()
                 }
             }) {
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle")
                     Text("Done")
                 }
                 .font(.callout)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
                 .foregroundColor(.black)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
                 .background(NoteVConfig.Design.accent)
                 .cornerRadius(NoteVConfig.Design.cornerRadius)
             }
             .disabled(appState.isPostProcessing)
             .opacity(appState.isPostProcessing ? 0.5 : 1.0)
+            .padding(.horizontal, NoteVConfig.Design.padding)
         }
-        .padding(.horizontal, NoteVConfig.Design.padding)
         .padding(.vertical, 12)
         .background(NoteVConfig.Design.background)
     }
 
-    private var pdfButtonLabel: some View {
-        HStack {
-            Image(systemName: "doc.richtext")
-            Text("PDF")
+    private func actionBarButton(icon: String, label: String, accent: Bool = true) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+            Text(label)
+                .lineLimit(1)
         }
         .font(.callout)
         .fontWeight(.medium)
-        .foregroundColor(NoteVConfig.Design.accent)
-        .padding(.horizontal, 20)
+        .foregroundColor(accent ? NoteVConfig.Design.accent : NoteVConfig.Design.textSecondary)
+        .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(NoteVConfig.Design.surface)
         .cornerRadius(NoteVConfig.Design.cornerRadius)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: - Actions

@@ -95,6 +95,8 @@ final class PostProcessingOrchestrator {
             case .finalizing:
                 if updatedSession.transcriptSegments.isEmpty && updatedSession.frames.isEmpty {
                     warnings.append("Session has no transcript or frames")
+                } else if updatedSession.transcriptSegments.isEmpty {
+                    warnings.append("Live transcription unavailable — notes were generated from video frames only")
                 }
 
             case .extractingFrames:
