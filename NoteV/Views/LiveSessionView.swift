@@ -178,7 +178,7 @@ struct LiveSessionView: View {
                 _ = await PostProcessingOrchestrator.shared.process(
                     session: session,
                     appState: appState,
-                    fromStage: .polishing
+                    fromStage: .finalizing
                 )
             }
         }

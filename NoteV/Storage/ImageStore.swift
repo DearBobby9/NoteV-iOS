@@ -62,4 +62,18 @@ final class ImageStore {
         }
         return uiImage.jpegData(compressionQuality: NoteVConfig.Storage.jpegCompressionQuality)
     }
+
+    /// Remove periodic `frame_*.jpg` files while keeping bookmark and other preserved filenames.
+    func deletePeriodicFrameImages(sessionId: UUID, preserving preservedFilenames: [String]) throws {
+        let sessionDir = sessionsDirectory.appendingPathComponent(sessionId.uuidString)
+        guard fileManager.fileExists(atPath: sessionDir.path) else { return }
+
+        let preserved = Set(preservedFilenames)
+        let contents = try fileManager.contentsOfDirectory(atPath: sessionDir.path)
+        for filename in contents where filename.hasPrefix("frame_") && filename.hasSuffix(".jpg") {
+            if preserved.contains(filename) { continue }
+            try fileManager.removeItem(at: sessionDir.appendingPathComponent(filename))
+        }
+        NSLog("[ImageStore] Cleared periodic frame images for session \(sessionId)")
+    }
 }

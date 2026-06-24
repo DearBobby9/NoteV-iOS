@@ -38,7 +38,12 @@
 		8E86616CDE14C80BC25F7043 /* SessionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFAD7E6334C6D2841D53CB3C /* SessionData.swift */; };
 		9680CBD3C56862D94C807843 /* APIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8755CFBEDC1823B02FD63328 /* APIKeys.swift */; };
 		9C6610085E2C9C2D9D93149F /* SessionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */; };
-		V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */; };
+        V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */; };
+		F1C2H3A4N5G6E7D8E9T0O1R2 /* FrameChangeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C2H3A4N5G6E7D8E9T0O1R1 /* FrameChangeDetector.swift */; };
+		T1R2A3N4S5D6E7N8S9I0T1Y2 /* TranscriptDensityAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */; };
+		E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */; };
+		S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */; };
+		S1E2S3S4F4R5A6M7E8X9T0R1 /* SessionFrameExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */; };
 		V2D3E4F5A6B7C8D9E0F1A2B3 /* VisualSampleProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */; };
 		P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */; };
 		P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */; };
@@ -153,6 +158,11 @@
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* TranscriptPolisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolisher.swift; sourceTree = "<group>"; };
 		B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecorder.swift; sourceTree = "<group>"; };
 		V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoRecorder.swift; sourceTree = "<group>"; };
+		F1C2H3A4N5G6E7D8E9T0O1R1 /* FrameChangeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameChangeDetector.swift; sourceTree = "<group>"; };
+		T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDensityAnalyzer.swift; sourceTree = "<group>"; };
+		E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractionTimestampPlanner.swift; sourceTree = "<group>"; };
+		S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFrameExtractor.swift; sourceTree = "<group>"; };
+		S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFrameExtractorTests.swift; sourceTree = "<group>"; };
 		V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSampleProcessor.swift; sourceTree = "<group>"; };
 		P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostProcessingOrchestrator.swift; sourceTree = "<group>"; };
 		P1P2R3O4C5B6A7N8N9E0R1A1 /* ProcessingStageBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessingStageBanner.swift; sourceTree = "<group>"; };
@@ -203,11 +213,15 @@
 				AA11BB22CC33DD44EE55FF06 /* CourseDetector.swift */,
 				AA11BB22CC33DD44EE55FF04 /* FrameDeduplicator.swift */,
 				2ABBF48B47823E60ED467485 /* FramePipeline.swift */,
+				F1C2H3A4N5G6E7D8E9T0O1R1 /* FrameChangeDetector.swift */,
+				E1X2T3R4A5C6T7I8O9N0P1L1 /* ExtractionTimestampPlanner.swift */,
 				B8691AF9854B7B9AA5BB34D1 /* SessionRecorder.swift */,
+				S1E2S3S4I5O6N7F8R9A0M1E1 /* SessionFrameExtractor.swift */,
 				P1P2O3R4C5E6S7S8I9N0G1A1 /* PostProcessingOrchestrator.swift */,
 				V1D2E3F4A5B6C7D8E9F0A1B1 /* VideoRecorder.swift */,
 				V2D3E4F5A6B7C8D9E0F1A2B2 /* VisualSampleProcessor.swift */,
 				AA11BB22CC33DD44EE55FF05 /* SlideAnalyzer.swift */,
+				T1R2A3N4S5D6E7N8S9I0T1Y1 /* TranscriptDensityAnalyzer.swift */,
 				AA11BB22CC33DD44EE55FF03 /* SmartBookmarkDetector.swift */,
 			);
 			path = Processing;
@@ -237,6 +251,7 @@
 			children = (
 				E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */,
 				P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */,
+				S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */,
 				V3D4E5F6A7B8C9D0E1F2A3B3 /* VideoPipelineTests.swift */,
 			);
 			path = NoteVTests;
@@ -525,6 +540,10 @@
 				V1D2E3F4A5B6C7D8E9F0A1B2 /* VideoRecorder.swift in Sources */,
 				V2D3E4F5A6B7C8D9E0F1A2B3 /* VisualSampleProcessor.swift in Sources */,
 				P1P2O3R4C5E6S7S8I9N0G1A2 /* PostProcessingOrchestrator.swift in Sources */,
+				F1C2H3A4N5G6E7D8E9T0O1R2 /* FrameChangeDetector.swift in Sources */,
+				E1X2T3R4A5C6T7I8O9N0P1L2 /* ExtractionTimestampPlanner.swift in Sources */,
+				S1E2S3S4I5O6N7F8R9A0M1E2 /* SessionFrameExtractor.swift in Sources */,
+				T1R2A3N4S5D6E7N8S9I0T1Y2 /* TranscriptDensityAnalyzer.swift in Sources */,
 				P1P2R3O4C5B6A7N8N9E0R1A2 /* ProcessingStageBanner.swift in Sources */,
 				DF6ED75FE80B0743C9B2E58A /* SessionStore.swift in Sources */,
 				D8E2D1E55B9A1BA8C707EABF /* SettingsManager.swift in Sources */,
@@ -571,6 +590,7 @@
 				CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */,
 				V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */,
 				P1P2O3R4T3E4S5T6S7O8R0A1 /* PostProcessingOrchestratorTests.swift in Sources */,
+				S1E2S3S4F4R5A6M7E8X9T0R1 /* SessionFrameExtractorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

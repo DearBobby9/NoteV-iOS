@@ -98,9 +98,25 @@ final class PostProcessingOrchestrator {
                 }
 
             case .extractingFrames:
-                if NoteVConfig.FrameExtraction.enabled {
-                    // PR2: SessionFrameExtractor will run here
-                    warnings.append("Frame extraction not yet implemented — using live preview frames")
+                if NoteVConfig.FrameExtraction.enabled,
+                   let _ = updatedSession.metadata.videoFilename {
+                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
+                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                        do {
+                            let extractor = SessionFrameExtractor()
+                            updatedSession = try await extractor.extract(session: updatedSession, videoURL: videoURL)
+                            appState.currentSession = updatedSession
+                            try? sessionStore.save(session: updatedSession)
+                            NSLog("[PostProcessingOrchestrator] Frame extraction complete — \(updatedSession.frames.count) frames")
+                        } catch {
+                            warnings.append("Frame extraction failed — using live preview frames")
+                            NSLog("[PostProcessingOrchestrator] Extraction failed (non-fatal): \(error.localizedDescription)")
+                        }
+                    } else {
+                        warnings.append("Session video file missing — using live preview frames")
+                    }
+                } else if NoteVConfig.FrameExtraction.enabled {
+                    warnings.append("No session video — using live preview frames")
                 }
 
             case .polishing:

@@ -22,7 +22,7 @@ final class PostProcessingOrchestratorTests: XCTestCase {
         XCTAssertNil(SessionStatus.complete.processingStageLabel)
     }
 
-    func testFrameExtractionDisabledByDefault() {
-        XCTAssertFalse(NoteVConfig.FrameExtraction.enabled)
+    func testFrameExtractionEnabled() {
+        XCTAssertTrue(NoteVConfig.FrameExtraction.enabled)
     }
 }

@@ -133,7 +133,7 @@ enum NoteVConfig {
 
     enum FrameExtraction {
         /// Whether to extract authoritative frames from session.mp4 after recording (PR2)
-        static let enabled: Bool = false
+        static let enabled: Bool = true
         /// Max candidate frames before pHash dedup
         static let maxCandidateFrames: Int = 250
         /// Base periodic sampling interval during extraction (seconds)
