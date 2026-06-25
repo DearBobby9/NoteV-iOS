@@ -10,7 +10,10 @@
 		05B28527966D2F6FDF024A75 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = BC152B79DBB55C1715D7A091 /* MWDATCamera */; };
 		22D39271B4619B58D040D370 /* NotesResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369FC04B08DE705AA9774885 /* NotesResultView.swift */; };
 		29E6CB3D87A8607521571F5E /* TranscriptSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C725368C366A110A6E92096B /* TranscriptSegment.swift */; };
+		B1G2T3A4S5K6C7O8O9R0D1R2 /* BackgroundTaskCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1G2T3A4S5K6C7O8O9R0D1R1 /* BackgroundTaskCoordinator.swift */; };
 		M1D2R3N4D5E6R7E8N9D0E1R2 /* MarkdownRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = M1D2R3N4D5E6R7E8N9D0E1R1 /* MarkdownRenderer.swift */; };
+		S1E2S3S4C5A6P7T8U9R0E1R2 /* SessionData+Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = S1E2S3S4C5A6P7T8U9R0E1R1 /* SessionData+Capture.swift */; };
+		C1A2P3T4U5R6E7S8I9L0T1E2 /* CaptureResilienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2P3T4U5R6E7S8I9L0T1E1 /* CaptureResilienceTests.swift */; };
 		M1D2R3N4D5E6T7E8X9T0V1W2 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = M1D2R3N4D5E6T7E8X9T0V1W1 /* MarkdownText.swift */; };
 		M1D2R3N4D5E6T7E8S9T0T1E2 /* MarkdownRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = M1D2R3N4D5E6T7E8S9T0T1E1 /* MarkdownRendererTests.swift */; };
 		L1I2V3E4T5R6A7N8S9C0R1I2 /* LiveTranscriptStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = L1I2V3E4T5R6A7N8S9C0R1I1 /* LiveTranscriptStatus.swift */; };
@@ -196,7 +199,10 @@
 		C2E3AD1A1B723FD19CA34329 /* MultimodalNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultimodalNoteView.swift; sourceTree = "<group>"; };
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* TranscriptPolishingPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPolishingPromptBuilder.swift; sourceTree = "<group>"; };
 		C725368C366A110A6E92096B /* TranscriptSegment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegment.swift; sourceTree = "<group>"; };
+		B1G2T3A4S5K6C7O8O9R0D1R1 /* BackgroundTaskCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskCoordinator.swift; sourceTree = "<group>"; };
 		M1D2R3N4D5E6R7E8N9D0E1R1 /* MarkdownRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRenderer.swift; sourceTree = "<group>"; };
+		S1E2S3S4C5A6P7T8U9R0E1R1 /* SessionData+Capture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionData+Capture.swift"; sourceTree = "<group>"; };
+		C1A2P3T4U5R6E7S8I9L0T1E1 /* CaptureResilienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureResilienceTests.swift; sourceTree = "<group>"; };
 		M1D2R3N4D5E6T7E8X9T0V1W1 /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
 		M1D2R3N4D5E6T7E8S9T0T1E1 /* MarkdownRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRendererTests.swift; sourceTree = "<group>"; };
 		L1I2V3E4T5R6A7N8S9C0R1I1 /* LiveTranscriptStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriptStatus.swift; sourceTree = "<group>"; };
@@ -270,6 +276,7 @@
 			isa = PBXGroup;
 			children = (
 				M1D2R3N4D5E6R7E8N9D0E1R1 /* MarkdownRenderer.swift */,
+				B1G2T3A4S5K6C7O8O9R0D1R1 /* BackgroundTaskCoordinator.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -289,6 +296,7 @@
 			isa = PBXGroup;
 			children = (
 				E9FA9C2FB7DACCDB34DBF9D3 /* NoteVTests.swift */,
+				C1A2P3T4U5R6E7S8I9L0T1E1 /* CaptureResilienceTests.swift */,
 				M1D2R3N4D5E6T7E8S9T0T1E1 /* MarkdownRendererTests.swift */,
 				P1P2O3R4T3E4S5T6S7O8R0A0 /* PostProcessingOrchestratorTests.swift */,
 				S1E2S3S4F4R5A6M7E8X9T0R0 /* SessionFrameExtractorTests.swift */,
@@ -449,6 +457,7 @@
 				L1I2V3E4T5R6A7N8S9C0R1I1 /* LiveTranscriptStatus.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* PolishedTranscript.swift */,
 				BFAD7E6334C6D2841D53CB3C /* SessionData.swift */,
+				S1E2S3S4C5A6P7T8U9R0E1R1 /* SessionData+Capture.swift */,
 				AA469283DB5D587BC6ADEC08 /* StructuredNotes.swift */,
 				CD1CED33B0A8AE44406B797A /* TimestampedFrame.swift */,
 				1696B9A024763FBB57036026 /* TodoItem.swift */,
@@ -562,6 +571,8 @@
 				874B73227021ED236318CCDF /* CaptureProvider.swift in Sources */,
 				71F748C979DD6E38A07183F5 /* DeepgramService.swift in Sources */,
 				M1D2R3N4D5E6R7E8N9D0E1R2 /* MarkdownRenderer.swift in Sources */,
+				B1G2T3A4S5K6C7O8O9R0D1R2 /* BackgroundTaskCoordinator.swift in Sources */,
+				S1E2S3S4C5A6P7T8U9R0E1R2 /* SessionData+Capture.swift in Sources */,
 				M1D2R3N4D5E6T7E8X9T0V1W2 /* MarkdownText.swift in Sources */,
 				39438970A6DC57B79D351745 /* FramePipeline.swift in Sources */,
 				5BEB5FD6F8763E8C7CF99ACD /* FrameThumbnailView.swift in Sources */,
@@ -645,6 +656,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC2C647586A8C0B19A4AF596 /* NoteVTests.swift in Sources */,
+				C1A2P3T4U5R6E7S8I9L0T1E2 /* CaptureResilienceTests.swift in Sources */,
 				M1D2R3N4D5E6T7E8S9T0T1E2 /* MarkdownRendererTests.swift in Sources */,
 				V3D4E5F6A7B8C9D0E1F2A3B4 /* VideoPipelineTests.swift in Sources */,
 				A1U2D3I4O5S6T7R8E9E0T1E2E3 /* AudioStreamTeeTests.swift in Sources */,

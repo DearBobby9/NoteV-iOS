@@ -6,6 +6,7 @@ import SwiftUI
 struct LiveSessionView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var sessionRecorder: SessionRecorder
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var isEndingSession = false
     private let courseDetector = CourseDetector()
@@ -163,6 +164,17 @@ struct LiveSessionView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .background, appState.isRecording else { return }
+            Task {
+                await BackgroundTaskCoordinator.run(named: "NoteV.RecordingBackground") {
+                    await sessionRecorder.flushRecordingPipeline()
+                    await MainActor.run {
+                        sessionRecorder.saveRecordingCheckpoint()
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Actions

@@ -31,15 +31,25 @@ final class NoteGenerator {
     func generateNotes(from session: SessionData) async throws -> StructuredNotes {
         NSLog("[NoteGenerator] generateNotes() called — \(session.frames.count) frames, \(session.transcriptSegments.count) segments")
 
-        // 1. Select top frames (bookmarks first, then highest change score)
+        if session.metadata.durationSeconds > NoteVConfig.LongSession.extendedDurationThreshold {
+            return try await generateNotesInChunks(from: session)
+        }
+
+        return try await generateNotesSinglePass(from: session)
+    }
+
+    // MARK: - Single pass
+
+    private func generateNotesSinglePass(from session: SessionData) async throws -> StructuredNotes {
         let selectedFrames = session.topFrames()
         NSLog("[NoteGenerator] Selected \(selectedFrames.count) top frames for prompt")
 
-        // 2. Build multimodal prompt — returns only frames whose images loaded successfully
-        let (userPrompt, images, includedFrames) = promptBuilder.buildPrompt(session: session, selectedFrames: selectedFrames)
+        let (userPrompt, images, includedFrames) = promptBuilder.buildPrompt(
+            session: session,
+            selectedFrames: selectedFrames
+        )
         NSLog("[NoteGenerator] Prompt built — \(userPrompt.count) chars, \(images.count) images")
 
-        // 3. Send to LLM
         let response = try await llmService.sendPrompt(
             systemPrompt: PromptBuilder.systemPrompt,
             userPrompt: userPrompt,
@@ -47,20 +57,129 @@ final class NoteGenerator {
         )
         NSLog("[NoteGenerator] LLM response received — \(response.count) chars")
 
-        // 4. Build image_N → filename mapping from includedFrames (matches prompt indices exactly)
+        return try parseAndEnrich(
+            response: response,
+            includedFrames: includedFrames
+        )
+    }
+
+    // MARK: - Chunked (long sessions)
+
+    private func generateNotesInChunks(from session: SessionData) async throws -> StructuredNotes {
+        let chunkDuration = NoteVConfig.LongSession.noteChunkDurationSeconds
+        let duration = max(session.metadata.durationSeconds, 1)
+        var mergedTitle = "Lecture Notes"
+        var mergedSummary = ""
+        var mergedTakeaways: [String] = []
+        var mergedSections: [NoteSection] = []
+        var sectionOrder = 0
+        var chunkErrors: [String] = []
+
+        var chunkStart: TimeInterval = 0
+        var chunkIndex = 0
+        while chunkStart < duration {
+            let chunkEnd = min(chunkStart + chunkDuration, duration)
+            let chunkSession = session.filtered(to: chunkStart..<chunkEnd)
+            let selectedFrames = chunkSession.topFrames()
+
+            do {
+                let (userPrompt, images, includedFrames) = promptBuilder.buildPrompt(
+                    session: chunkSession,
+                    selectedFrames: selectedFrames,
+                    chunkLabel: "Part \(chunkIndex + 1)"
+                )
+
+                let response = try await llmService.sendPrompt(
+                    systemPrompt: PromptBuilder.systemPrompt,
+                    userPrompt: userPrompt,
+                    images: images
+                )
+
+                let chunkNotes = try parseAndEnrich(
+                    response: response,
+                    includedFrames: includedFrames
+                )
+
+                if chunkIndex == 0 {
+                    mergedTitle = chunkNotes.title
+                    mergedSummary = chunkNotes.summary
+                } else if !chunkNotes.summary.isEmpty {
+                    mergedSummary += mergedSummary.isEmpty ? chunkNotes.summary : " " + chunkNotes.summary
+                }
+
+                for takeaway in chunkNotes.keyTakeaways where !mergedTakeaways.contains(takeaway) {
+                    mergedTakeaways.append(takeaway)
+                }
+
+                for section in chunkNotes.sections.sorted(by: { $0.order < $1.order }) {
+                    mergedSections.append(
+                        NoteSection(
+                            id: section.id,
+                            title: section.title,
+                            content: section.content,
+                            images: section.images,
+                            order: sectionOrder,
+                            startTime: section.startTime,
+                            endTime: section.endTime,
+                            isBookmarkSection: section.isBookmarkSection
+                        )
+                    )
+                    sectionOrder += 1
+                }
+            } catch {
+                chunkErrors.append("Part \(chunkIndex + 1): \(error.localizedDescription)")
+                NSLog("[NoteGenerator] Chunk \(chunkIndex + 1) failed: \(error.localizedDescription)")
+            }
+
+            chunkStart = chunkEnd
+            chunkIndex += 1
+        }
+
+        guard !mergedSections.isEmpty else {
+            if let firstError = chunkErrors.first {
+                throw NSError(
+                    domain: "NoteGenerator",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: firstError]
+                )
+            }
+            throw NSError(
+                domain: "NoteGenerator",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "No notes generated from any chunk"]
+            )
+        }
+
+        if !chunkErrors.isEmpty {
+            NSLog("[NoteGenerator] Chunked notes partial — \(chunkErrors.count) chunk failures")
+        }
+
+        let notes = StructuredNotes(
+            title: mergedTitle,
+            summary: mergedSummary,
+            sections: mergedSections,
+            keyTakeaways: mergedTakeaways,
+            modelUsed: SettingsManager.shared.llmModel
+        )
+        NSLog("[NoteGenerator] Chunked notes merged — \(chunkIndex) chunks, \(mergedSections.count) sections")
+        return notes
+    }
+
+    private func parseAndEnrich(
+        response: String,
+        includedFrames: [TimestampedFrame]
+    ) throws -> StructuredNotes {
         var imageMap: [Int: String] = [:]
         for (index, frame) in includedFrames.enumerated() {
             imageMap[index + 1] = frame.imageFilename
         }
-        NSLog("[NoteGenerator] Image mapping built — \(imageMap.count) entries")
 
-        // 5. Parse response into StructuredNotes (pass mapping directly — no mutable state)
-        let notes = noteParser.parse(markdown: response, imageFilenameMap: imageMap, modelUsed: SettingsManager.shared.llmModel)
-        NSLog("[NoteGenerator] Notes parsed — \"\(notes.title)\", \(notes.sections.count) sections")
-
-        // 6. Backfill image timestamps from actual frame capture data
-        let enrichedNotes = enrichImageTimestamps(notes, includedFrames: includedFrames)
-        return enrichedNotes
+        let notes = noteParser.parse(
+            markdown: response,
+            imageFilenameMap: imageMap,
+            modelUsed: SettingsManager.shared.llmModel
+        )
+        return enrichImageTimestamps(notes, includedFrames: includedFrames)
     }
 
     // MARK: - Helpers

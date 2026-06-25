@@ -95,9 +95,9 @@ struct SessionData: Identifiable, Codable, Sendable {
         notes == nil && !transcriptSegments.isEmpty
     }
 
-    /// Whether reprocess/retry has enough artifacts to run the LLM pipeline.
-    var canReprocess: Bool {
-        !frames.isEmpty || !transcriptSegments.isEmpty
+    /// Whether reprocess/retry has enough on-disk or in-memory artifacts for the LLM pipeline.
+    func canReprocess(videoExistsOnDisk: Bool) -> Bool {
+        !frames.isEmpty || !transcriptSegments.isEmpty || videoExistsOnDisk
     }
 
     /// Top frames ranked by importance (bookmarks first, then highest change score)

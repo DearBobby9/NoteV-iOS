@@ -100,7 +100,8 @@ final class SessionFrameExtractor {
         let timestamps = ExtractionTimestampPlanner.planTimestamps(
             duration: duration,
             denseWindows: denseWindows,
-            sceneChangeTimes: sceneChanges
+            sceneChangeTimes: sceneChanges,
+            baseInterval: NoteVConfig.FrameExtraction.adaptiveBaseInterval(forDuration: duration)
         )
 
         var frames: [TimestampedFrame] = []

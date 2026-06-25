@@ -67,9 +67,14 @@ final class PostProcessingOrchestrator {
         appState: AppState,
         fromStage: PostProcessingStage = .finalizing
     ) {
+        let previous = activeTask
         activeTask?.cancel()
         activeTask = Task {
-            _ = await process(session: session, appState: appState, fromStage: fromStage)
+            _ = await previous?.value
+            isProcessing = false
+            await BackgroundTaskCoordinator.run(named: "NoteV.PostProcessing") {
+                _ = await self.process(session: session, appState: appState, fromStage: fromStage)
+            }
             activeTask = nil
         }
     }
@@ -140,8 +145,12 @@ final class PostProcessingOrchestrator {
 
             switch stage {
             case .finalizing:
-                if updatedSession.transcriptSegments.isEmpty && updatedSession.frames.isEmpty {
-                    let message = "Recording failed — no video frames or transcript were captured"
+                let videoURL = sessionStore.videoURL(for: updatedSession.id)
+                let hasVideo = updatedSession.metadata.videoFilename != nil
+                    && FileManager.default.fileExists(atPath: videoURL.path)
+
+                if !updatedSession.hasRecoverableArtifacts(videoExistsOnDisk: hasVideo) {
+                    let message = "Recording failed — no video, frames, or transcript were captured"
                     warnings.append(message)
                     appState.processingWarnings = warnings
                     appState.sessionStatus = .error(message)
@@ -154,8 +163,7 @@ final class PostProcessingOrchestrator {
                         failedStage: .finalizing
                     )
                 } else if updatedSession.transcriptSegments.isEmpty {
-                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
-                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                    if hasVideo {
                         warnings.append("Live transcription unavailable — will retry from session video")
                     }
                 }
@@ -245,15 +253,8 @@ final class PostProcessingOrchestrator {
                     try? sessionStore.save(session: updatedSession)
                 } catch {
                     failedStage = .generatingNotes
-                    appState.sessionStatus = .error(error.localizedDescription)
-                    NSLog("[PostProcessingOrchestrator] Note generation failed: \(error.localizedDescription)")
-                    return PostProcessingResult(
-                        session: updatedSession,
-                        notes: nil,
-                        todos: todos,
-                        warnings: warnings,
-                        failedStage: failedStage
-                    )
+                    warnings.append("Note generation failed: \(error.localizedDescription)")
+                    NSLog("[PostProcessingOrchestrator] Note generation failed (non-fatal): \(error.localizedDescription)")
                 }
 
             case .extractingTodos:

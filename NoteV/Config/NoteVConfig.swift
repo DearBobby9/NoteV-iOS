@@ -165,6 +165,33 @@ enum NoteVConfig {
         static let denseWordsPerMinuteThreshold: Double = 120
         /// Coarse scan interval for scene-change detection (seconds)
         static let coarseScanInterval: TimeInterval = 2.0
+
+        /// Base sampling interval scaled for long sessions (see `LongSession`).
+        static func adaptiveBaseInterval(forDuration duration: TimeInterval) -> TimeInterval {
+            guard duration > NoteVConfig.LongSession.extendedDurationThreshold else {
+                return baseSamplingInterval
+            }
+            let scale = min(
+                duration / NoteVConfig.LongSession.extendedDurationThreshold,
+                NoteVConfig.LongSession.maxSamplingIntervalScale
+            )
+            return min(baseSamplingInterval * scale, NoteVConfig.LongSession.maxBaseSamplingInterval)
+        }
+    }
+
+    // MARK: - Long Session (cost + performance)
+
+    enum LongSession {
+        /// Sessions longer than this use wider frame sampling and chunked note generation.
+        static let extendedDurationThreshold: TimeInterval = 3_600
+        /// Note generation chunk size for long lectures (seconds of transcript).
+        static let noteChunkDurationSeconds: TimeInterval = 1_800
+        /// Max multiplier applied to base frame sampling interval.
+        static let maxSamplingIntervalScale: Double = 3.0
+        /// Cap for adaptive base sampling interval (seconds).
+        static let maxBaseSamplingInterval: TimeInterval = 15.0
+        /// Checkpoint interval while recording (seconds).
+        static let recordingCheckpointIntervalSeconds: TimeInterval = 30
     }
 
     // MARK: - Chat Voice (Deepgram for chat input)
@@ -211,6 +238,8 @@ enum NoteVConfig {
         static let glassesStreamFrameRate: Int = 30
         /// Minimum free disk space (bytes) before starting video recording
         static let minFreeDiskBytes: Int64 = 2_000_000_000
+        /// Audio samples buffered while waiting for the first video frame (~2 min).
+        static let maxPendingAudioBuffers: Int = 2_400
 
         /// Returns false when device free space is below `minFreeDiskBytes`.
         static var hasSufficientDiskSpace: Bool {

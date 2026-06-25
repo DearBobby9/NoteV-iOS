@@ -50,6 +50,7 @@ final class SessionRecorder: ObservableObject {
     private var transcriptCollectorTask: Task<Void, Never>?
     private var frameCollectorTask: Task<Void, Never>?
     private var timerTask: Task<Void, Never>?
+    private var checkpointTask: Task<Void, Never>?
 
     // Video recording (phone path in PR 1)
     private var videoRecorder: VideoRecorder?
@@ -252,6 +253,7 @@ final class SessionRecorder: ObservableObject {
         startTranscriptCollector(stream: transcriptStream)
         startFrameCollector()
         startTimer()
+        startCheckpointTask()
 
         NSLog("[SessionRecorder] All pipelines started — session: \(newSessionId)")
     }
@@ -264,9 +266,11 @@ final class SessionRecorder: ObservableObject {
         audioRouteMonitor?.stop()
         audioRouteMonitor = nil
 
-        // 1. Cancel timer
+        // 1. Cancel timer + checkpoint
         timerTask?.cancel()
         timerTask = nil
+        checkpointTask?.cancel()
+        checkpointTask = nil
 
         // 2. Stop capture — raw streams finish, pipeline for-await loops will exit
         await captureManager.stopCapture()
@@ -595,6 +599,69 @@ final class SessionRecorder: ObservableObject {
         NSLog("[SessionRecorder] Manual bookmark #\(collectedBookmarks.count) at \(String(format: "%.1f", timestamp))s\(hasFrame ? " — .bookmark frame added" : " — no photo, frame skipped")")
     }
 
+    /// Flush in-flight video samples to disk queues (call on background/disconnect).
+    func flushRecordingPipeline() async {
+        guard isRecording else { return }
+        await captureManager?.flushPendingSamples()
+        await visualSampleProcessor?.flushAndWait()
+        NSLog("[SessionRecorder] Recording pipeline flushed")
+    }
+
+    /// Persist partial session state while recording so transcript/frames survive crashes.
+    func saveRecordingCheckpoint() {
+        guard isRecording,
+              let sessionId,
+              let sessionStartTime else { return }
+
+        let duration = Date().timeIntervalSince(sessionStartTime)
+        let metadata = SessionMetadata(
+            sessionId: sessionId,
+            startDate: sessionStartTime,
+            endDate: nil,
+            captureSource: captureManager?.activeSource ?? .phone,
+            title: "Recording in progress",
+            durationSeconds: duration,
+            videoFilename: nil
+        )
+
+        let frames = collectedFrames.map { frame -> TimestampedFrame in
+            var copy = frame
+            copy.imageData = nil
+            return copy
+        }
+
+        let checkpoint = SessionData(
+            metadata: metadata,
+            frames: frames,
+            transcriptSegments: deduplicateSegments(collectedSegments),
+            bookmarks: collectedBookmarks
+        )
+
+        do {
+            try sessionStore.save(session: checkpoint)
+            NSLog("[SessionRecorder] Checkpoint saved — \(frames.count) frames, \(checkpoint.transcriptSegments.count) segments, \(String(format: "%.0f", duration))s")
+        } catch {
+            NSLog("[SessionRecorder] ERROR saving checkpoint: \(error.localizedDescription)")
+        }
+    }
+
+    private func startCheckpointTask() {
+        checkpointTask?.cancel()
+        checkpointTask = Task { [weak self] in
+            let interval = UInt64(NoteVConfig.LongSession.recordingCheckpointIntervalSeconds * 1_000_000_000)
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: interval)
+                guard !Task.isCancelled else { break }
+                await BackgroundTaskCoordinator.run(named: "NoteV.RecordingCheckpoint") {
+                    await self?.flushRecordingPipeline()
+                    await MainActor.run {
+                        self?.saveRecordingCheckpoint()
+                    }
+                }
+            }
+        }
+    }
+
     private func startTimer() {
         timerTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -612,6 +679,12 @@ final class SessionRecorder: ObservableObject {
         monitor.onGlassesMicLost = { [weak self] in
             self?.appState?.audioSourceWarning =
                 "Glasses mic disconnected — audio may be coming from your iPhone. Check that glasses are worn and connected in Meta AI."
+            Task { @MainActor [weak self] in
+                await BackgroundTaskCoordinator.run(named: "NoteV.RecordingBackground") {
+                    await self?.flushRecordingPipeline()
+                    self?.saveRecordingCheckpoint()
+                }
+            }
         }
         monitor.startMonitoringGlassesHFP()
         audioRouteMonitor = monitor

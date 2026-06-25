@@ -63,12 +63,20 @@ final class PromptBuilder {
     /// Build the full prompt from session data. Returns (prompt text, image data array, frames actually included).
     /// Only frames whose images load successfully are included — this keeps image_N indices
     /// aligned with the actual image data sent to the LLM.
-    func buildPrompt(session: SessionData, selectedFrames: [TimestampedFrame]) -> (String, [Data], [TimestampedFrame]) {
+    func buildPrompt(
+        session: SessionData,
+        selectedFrames: [TimestampedFrame],
+        chunkLabel: String? = nil
+    ) -> (String, [Data], [TimestampedFrame]) {
         NSLog("[PromptBuilder] buildPrompt() called — \(selectedFrames.count) frames, \(session.transcriptSegments.count) segments")
 
         var prompt = ""
         var images: [Data] = []
         var includedFrames: [TimestampedFrame] = []
+
+        if let chunkLabel {
+            prompt += "## \(chunkLabel)\n\n"
+        }
 
         // 1. Format transcript with timestamps
         prompt += "## TRANSCRIPT\n\n"

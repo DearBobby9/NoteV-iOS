@@ -442,9 +442,17 @@ struct SessionResultView: View {
 
     private var actionBar: some View {
         VStack(spacing: 8) {
-            if appState.generatedNotes != nil || (appState.sessionStatus == .complete && !appState.isPostProcessing) {
+            if sessionVideoURL != nil
+                || appState.generatedNotes != nil
+                || (appState.sessionStatus == .complete && !appState.isPostProcessing) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
+                        if let videoURL = sessionVideoURL {
+                            ShareLink(item: videoURL) {
+                                actionBarButton(icon: "video", label: "Export Video")
+                            }
+                        }
+
                         if let notes = appState.generatedNotes {
                             ShareLink(item: notesAsText(notes)) {
                                 actionBarButton(icon: "square.and.arrow.up", label: "Share")
@@ -462,7 +470,7 @@ struct SessionResultView: View {
                         }
 
                         if appState.sessionStatus == .complete, !appState.isPostProcessing {
-                            let canReprocess = appState.currentSession?.canReprocess ?? false
+                            let canReprocess = appState.currentSession.map { sessionStore.canReprocess($0) } ?? false
                             Button(action: { reprocessSession() }) {
                                 actionBarButton(
                                     icon: "arrow.clockwise",
@@ -556,7 +564,7 @@ struct SessionResultView: View {
 
     private func runPostProcessing(for session: SessionData) {
         guard !PostProcessingOrchestrator.shared.isProcessing else { return }
-        guard session.canReprocess else { return }
+        guard sessionStore.canReprocess(session) else { return }
         NSLog("[SessionResultView] Starting post-processing pipeline")
         invalidatePDFCache()
         appState.processingWarnings = reprocessPreflightWarnings(for: session)

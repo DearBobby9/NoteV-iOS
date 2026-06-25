@@ -214,7 +214,7 @@ final class VideoRecorder: @unchecked Sendable {
     }
 
     private func trimPendingAudioBuffersIfNeeded() {
-        let maxPending = 300
+        let maxPending = NoteVConfig.Video.maxPendingAudioBuffers
         if pendingAudioBuffers.count > maxPending {
             pendingAudioBuffers.removeFirst(pendingAudioBuffers.count - maxPending)
             if audioDropLogCount < 5 {
