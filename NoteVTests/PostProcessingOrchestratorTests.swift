@@ -30,4 +30,20 @@ final class PostProcessingOrchestratorTests: XCTestCase {
     func testSessionVideoFilenameMatchesStorageConfig() {
         XCTAssertEqual(NoteVConfig.Storage.sessionVideoFilename, "session.mp4")
     }
+
+    func testProcessEmptySessionFailsAtFinalizing() async {
+        let orchestrator = PostProcessingOrchestrator()
+        let appState = AppState()
+        let session = SessionData(metadata: SessionMetadata())
+
+        let result = await orchestrator.process(session: session, appState: appState)
+
+        XCTAssertEqual(result.failedStage, .finalizing)
+        XCTAssertTrue(result.warnings.contains { $0.contains("no video") })
+        if case .error(let message) = appState.sessionStatus {
+            XCTAssertTrue(message.contains("no video"))
+        } else {
+            XCTFail("Expected error status, got \(appState.sessionStatus)")
+        }
+    }
 }

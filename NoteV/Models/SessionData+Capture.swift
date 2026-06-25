@@ -40,6 +40,16 @@ extension SessionStore {
         FileManager.default.fileExists(atPath: videoURL(for: sessionId).path)
     }
 
+    /// Playable session MP4 on disk, regardless of metadata flags (checkpoints omit `videoFilename`).
+    func usableVideoURL(for sessionId: UUID) -> URL? {
+        let url = videoURL(for: sessionId)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func usableVideoURL(for session: SessionData) -> URL? {
+        usableVideoURL(for: session.id)
+    }
+
     func canReprocess(_ session: SessionData) -> Bool {
         session.canReprocess(videoExistsOnDisk: videoExists(for: session.id))
     }

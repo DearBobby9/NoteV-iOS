@@ -89,4 +89,54 @@ final class CaptureResilienceTests: XCTestCase {
         )
         XCTAssertNil(checkpointMetadata.videoFilename)
     }
+
+    func testUsableVideoURLUsesDiskNotMetadata() throws {
+        let store = SessionStore()
+        let sessionId = UUID()
+        try store.ensureSessionDirectory(for: sessionId)
+        let videoURL = store.videoURL(for: sessionId)
+        FileManager.default.createFile(atPath: videoURL.path, contents: Data([0x00]), attributes: nil)
+        defer { try? FileManager.default.removeItem(at: store.sessionDirectory(for: sessionId)) }
+
+        let session = SessionData(metadata: SessionMetadata(sessionId: sessionId, videoFilename: nil))
+        XCTAssertNotNil(store.usableVideoURL(for: session))
+        XCTAssertEqual(store.usableVideoURL(for: session)?.lastPathComponent, NoteVConfig.Storage.sessionVideoFilename)
+    }
+
+    func testUsableVideoURLReturnsNilWhenFileMissing() {
+        let store = SessionStore()
+        let session = SessionData(metadata: SessionMetadata(sessionId: UUID(), videoFilename: nil))
+        XCTAssertNil(store.usableVideoURL(for: session))
+    }
+
+    func testCheckpointSaveClearsDerivedArtifacts() throws {
+        let store = SessionStore()
+        let sessionId = UUID()
+        let prior = SessionData(
+            metadata: SessionMetadata(sessionId: sessionId, title: "Prior"),
+            polishedTranscript: PolishedTranscript(segments: [], modelUsed: "test"),
+            notes: StructuredNotes(title: "Stale notes")
+        )
+        try store.save(session: prior)
+
+        let checkpoint = SessionData(
+            metadata: SessionMetadata(sessionId: sessionId, title: "Recording in progress", videoFilename: nil),
+            transcriptSegments: [
+                TranscriptSegment(startTime: 0, endTime: 1, text: "live", isFinal: true)
+            ],
+            polishedTranscript: nil,
+            notes: nil,
+            todos: nil,
+            slideAnalysis: nil
+        )
+        try store.save(session: checkpoint)
+
+        let loaded = try store.load(sessionId: sessionId)
+        XCTAssertNil(loaded.notes)
+        XCTAssertNil(loaded.polishedTranscript)
+        XCTAssertNil(loaded.slideAnalysis)
+        XCTAssertEqual(loaded.transcriptSegments.count, 1)
+
+        try? FileManager.default.removeItem(at: store.sessionDirectory(for: sessionId))
+    }
 }

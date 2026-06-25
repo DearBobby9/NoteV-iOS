@@ -439,7 +439,7 @@ final class SessionRecorder: ObservableObject {
     // MARK: - Collector Tasks
 
     private func startAudioMuxCollector(stream: AsyncStream<AudioChunk>, processor: VisualSampleProcessor) {
-        audioMuxTask = Task {
+        audioMuxTask = Task.detached(priority: .userInitiated) {
             let sourceRate = Double(NoteVConfig.Audio.sampleRate)
             let muxRate = Double(NoteVConfig.Audio.muxSampleRate)
             for await chunk in stream {
@@ -630,11 +630,19 @@ final class SessionRecorder: ObservableObject {
             return copy
         }
 
+        let existingCourse = try? sessionStore.load(sessionId: sessionId)
+
         let checkpoint = SessionData(
             metadata: metadata,
             frames: frames,
             transcriptSegments: deduplicateSegments(collectedSegments),
-            bookmarks: collectedBookmarks
+            bookmarks: collectedBookmarks,
+            polishedTranscript: nil,
+            notes: nil,
+            todos: nil,
+            slideAnalysis: nil,
+            courseId: existingCourse?.courseId,
+            courseName: existingCourse?.courseName
         )
 
         do {

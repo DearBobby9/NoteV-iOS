@@ -31,15 +31,13 @@ struct SessionResultView: View {
 
     private let sessionStore = SessionStore()
 
-    private var visibleTabs: [ResultTab] {
-        sessionVideoURL != nil ? ResultTab.allCases : [.timeline, .aiNotes, .tasks]
+    private var sessionVideoURL: URL? {
+        guard let session = appState.currentSession else { return nil }
+        return sessionStore.usableVideoURL(for: session)
     }
 
-    private var sessionVideoURL: URL? {
-        guard let session = appState.currentSession,
-              session.metadata.videoFilename != nil else { return nil }
-        let url = sessionStore.videoURL(for: session.id)
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    private var visibleTabs: [ResultTab] {
+        sessionVideoURL != nil ? ResultTab.allCases : [.timeline, .aiNotes, .tasks]
     }
 
     var body: some View {
@@ -586,9 +584,7 @@ struct SessionResultView: View {
     }
 
     private func reprocessStartStage(for session: SessionData) -> PostProcessingStage {
-        let videoURL = sessionStore.videoURL(for: session.id)
-        let hasVideo = session.metadata.videoFilename != nil
-            && FileManager.default.fileExists(atPath: videoURL.path)
+        let hasVideo = sessionStore.videoExists(for: session.id)
 
         if session.transcriptSegments.isEmpty, hasVideo, NoteVConfig.TranscriptExtraction.enabled {
             return .recoveringTranscript
@@ -601,9 +597,7 @@ struct SessionResultView: View {
 
     private func reprocessPreflightWarnings(for session: SessionData) -> [String] {
         guard NoteVConfig.FrameExtraction.enabled else { return [] }
-        let hasVideo = session.metadata.videoFilename != nil
-            && FileManager.default.fileExists(atPath: sessionStore.videoURL(for: session.id).path)
-        if !hasVideo {
+        if !sessionStore.videoExists(for: session.id) {
             return ["No video — reprocessing notes from existing frames"]
         }
         return []

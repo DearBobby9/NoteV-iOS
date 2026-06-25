@@ -145,11 +145,9 @@ final class PostProcessingOrchestrator {
 
             switch stage {
             case .finalizing:
-                let videoURL = sessionStore.videoURL(for: updatedSession.id)
-                let hasVideo = updatedSession.metadata.videoFilename != nil
-                    && FileManager.default.fileExists(atPath: videoURL.path)
+                let hasVideoOnDisk = sessionStore.videoExists(for: updatedSession.id)
 
-                if !updatedSession.hasRecoverableArtifacts(videoExistsOnDisk: hasVideo) {
+                if !updatedSession.hasRecoverableArtifacts(videoExistsOnDisk: hasVideoOnDisk) {
                     let message = "Recording failed — no video, frames, or transcript were captured"
                     warnings.append(message)
                     appState.processingWarnings = warnings
@@ -163,16 +161,15 @@ final class PostProcessingOrchestrator {
                         failedStage: .finalizing
                     )
                 } else if updatedSession.transcriptSegments.isEmpty {
-                    if hasVideo {
+                    if hasVideoOnDisk {
                         warnings.append("Live transcription unavailable — will retry from session video")
                     }
                 }
 
             case .recoveringTranscript:
                 if NoteVConfig.TranscriptExtraction.enabled,
-                   updatedSession.transcriptSegments.isEmpty {
-                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
-                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                   updatedSession.transcriptSegments.isEmpty,
+                   let videoURL = sessionStore.usableVideoURL(for: updatedSession) {
                         let started = Date()
                         do {
                             let transcriptExtractor = SessionTranscriptExtractor()
@@ -187,14 +184,11 @@ final class PostProcessingOrchestrator {
                             warnings.append("Transcript could not be recovered — notes based on slides only")
                             NSLog("[PostProcessingOrchestrator] Transcript recovery failed (non-fatal): \(error.localizedDescription)")
                         }
-                    }
                 }
 
             case .extractingFrames:
-                if NoteVConfig.FrameExtraction.enabled,
-                   let _ = updatedSession.metadata.videoFilename {
-                    let videoURL = sessionStore.videoURL(for: updatedSession.id)
-                    if FileManager.default.fileExists(atPath: videoURL.path) {
+                if NoteVConfig.FrameExtraction.enabled {
+                    if let videoURL = sessionStore.usableVideoURL(for: updatedSession) {
                         do {
                             let extractor = SessionFrameExtractor()
                             updatedSession = try await extractor.extract(session: updatedSession, videoURL: videoURL)
@@ -208,8 +202,6 @@ final class PostProcessingOrchestrator {
                     } else {
                         warnings.append("Session video file missing — using live preview frames")
                     }
-                } else if NoteVConfig.FrameExtraction.enabled {
-                    warnings.append("No session video — using live preview frames")
                 }
 
             case .polishing:
