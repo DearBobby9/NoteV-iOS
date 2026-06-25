@@ -24,6 +24,24 @@ struct StartSessionView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 32) {
+                if appState.isPostProcessing || (!appState.processingWarnings.isEmpty && appState.sessionStatus == .complete && appState.currentSession != nil) {
+                    VStack(spacing: 8) {
+                        ProcessingStageBanner(onCancel: cancelBackgroundProcessing)
+
+                        if appState.isPostProcessing, appState.currentSession != nil {
+                            Button(action: openProcessingSession) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "doc.text.magnifyingglass")
+                                    Text("View Session Progress")
+                                }
+                                .font(.callout.weight(.medium))
+                                .foregroundColor(NoteVConfig.Design.accent)
+                            }
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+
                 Spacer()
 
                 // Logo
@@ -86,7 +104,7 @@ struct StartSessionView: View {
                     }
                 }
                 .padding(.horizontal, NoteVConfig.Design.padding)
-                .disabled(appState.sessionStatus == .starting || appState.sessionStatus == .recording)
+                .disabled(appState.sessionStatus == .starting || appState.sessionStatus == .recording || appState.isPostProcessing)
 
                 // Detected course badge
                 if let course = detectedCourse {
@@ -183,6 +201,11 @@ struct StartSessionView: View {
         .onAppear {
             loadPastSessions()
             detectCurrentCourse()
+        }
+        .onChange(of: appState.sessionStatus) { _, newStatus in
+            if newStatus == .complete {
+                loadPastSessions()
+            }
         }
         .onChange(of: captureManager.connectedDevices) { oldDevices, newDevices in
             // Auto-select glasses when they first connect
@@ -301,6 +324,16 @@ struct StartSessionView: View {
         let store = SessionStore()
         appState.pastSessions = store.loadAllSessions()
         NSLog("[StartSessionView] Loaded \(appState.pastSessions.count) past sessions")
+    }
+
+    private func openProcessingSession() {
+        guard appState.currentSession != nil else { return }
+        appState.navigationPath.append(NavigationDestination.sessionResult)
+    }
+
+    private func cancelBackgroundProcessing() {
+        PostProcessingOrchestrator.shared.cancelProcessing(appState: appState)
+        loadPastSessions()
     }
 }
 

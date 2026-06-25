@@ -2,45 +2,59 @@ import SwiftUI
 
 // MARK: - ProcessingStageBanner
 
-/// Global progress banner shown during post-recording processing on all result tabs.
+/// Compact progress banner during post-recording processing; includes optional cancel action.
 struct ProcessingStageBanner: View {
     @EnvironmentObject var appState: AppState
+    var onCancel: (() -> Void)?
 
     var body: some View {
         if appState.isPostProcessing, let label = appState.processingStageLabel {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
+                    .scaleEffect(0.85)
+
                 Text(label)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(NoteVConfig.Design.textPrimary)
+                    .lineLimit(2)
+
                 Spacer(minLength: 0)
+
+                if let onCancel {
+                    Button("Stop", action: onCancel)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.orange)
+                }
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(NoteVConfig.Design.surface)
             .cornerRadius(NoteVConfig.Design.cornerRadius)
             .padding(.horizontal, NoteVConfig.Design.padding)
-            .padding(.top, 8)
+            .padding(.top, 4)
         } else if !appState.processingWarnings.isEmpty, appState.sessionStatus == .complete {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(appState.processingWarnings.enumerated()), id: \.offset) { _, warning in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
                         Image(systemName: warningIcon(for: warning))
+                            .font(.caption)
                             .foregroundColor(warningColor(for: warning))
                         Text(warning)
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundColor(NoteVConfig.Design.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
                 }
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(NoteVConfig.Design.surface)
             .cornerRadius(NoteVConfig.Design.cornerRadius)
             .padding(.horizontal, NoteVConfig.Design.padding)
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
     }
 
@@ -62,7 +76,7 @@ struct ProcessingStageBanner: View {
 // MARK: - Preview
 
 #Preview {
-    ProcessingStageBanner()
+    ProcessingStageBanner(onCancel: {})
         .environmentObject(AppState())
         .background(NoteVConfig.Design.background)
 }

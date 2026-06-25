@@ -15,7 +15,9 @@ struct FrameThumbnailView: View {
                let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
                     .cornerRadius(NoteVConfig.Design.cornerRadius)
             } else {
                 VStack(spacing: 8) {

@@ -8,8 +8,6 @@ struct LiveSessionView: View {
     @EnvironmentObject var sessionRecorder: SessionRecorder
 
     @State private var isEndingSession = false
-    @State private var showCourseSheet = false
-    @State private var pendingSession: SessionData?
     private let courseDetector = CourseDetector()
     private let courseStore = CourseStore()
 
@@ -102,37 +100,41 @@ struct LiveSessionView: View {
                     .padding(.horizontal, NoteVConfig.Design.padding)
                 }
 
-                // Frame Thumbnail Area
-                FrameThumbnailView()
-                    .frame(height: 120)
-                    .padding(.horizontal, NoteVConfig.Design.padding)
+                GeometryReader { geometry in
+                    let transcriptHeight = geometry.size.height * 0.5
+                    let bookmarkControlsHeight: CGFloat = 88
+                    let videoHeight = max(0, geometry.size.height - transcriptHeight - bookmarkControlsHeight)
 
-                // Bookmark Indicator
-                BookmarkIndicator()
-                    .frame(height: 40)
+                    VStack(spacing: 12) {
+                        FrameThumbnailView()
+                            .frame(height: videoHeight)
+                            .padding(.horizontal, NoteVConfig.Design.padding)
 
-                // Manual Bookmark Button
-                Button(action: {
-                    triggerManualBookmark()
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bookmark.fill")
-                        Text("Bookmark")
+                        BookmarkIndicator()
+                            .frame(height: 40)
+
+                        Button(action: {
+                            triggerManualBookmark()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "bookmark.fill")
+                                Text("Bookmark")
+                            }
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(NoteVConfig.Design.bookmarkHighlight.opacity(0.15))
+                            .cornerRadius(20)
+                        }
+
+                        TranscriptScrollView()
+                            .frame(height: transcriptHeight)
+                            .padding(.horizontal, NoteVConfig.Design.padding)
                     }
-                    .font(.callout)
-                    .fontWeight(.medium)
-                    .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(NoteVConfig.Design.bookmarkHighlight.opacity(0.15))
-                    .cornerRadius(20)
                 }
-
-                // Transcript
-                TranscriptScrollView()
-                    .padding(.horizontal, NoteVConfig.Design.padding)
-
-                Spacer()
+                .frame(maxHeight: .infinity)
 
                 // End Session Button
                 Button(action: {
@@ -161,17 +163,6 @@ struct LiveSessionView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
-        .sheet(isPresented: $showCourseSheet) {
-            PostRecordingCourseSheet(
-                courses: courseStore.loadAll(),
-                onSelect: { course in
-                    tagSessionWithCourse(course)
-                },
-                onSkip: {
-                    // Continue without course tag
-                }
-            )
-        }
     }
 
     // MARK: - Actions
@@ -195,31 +186,15 @@ struct LiveSessionView: View {
             appState.processingWarnings = []
             appState.sessionStatus = .finalizing
 
-            // Navigate to session result
-            appState.navigationPath.append(NavigationDestination.sessionResult)
+            let needsCourseSelection = session.courseId == nil && !courses.isEmpty
+            appState.transitionToSessionResult(needsCourseSelection: needsCourseSelection)
             isEndingSession = false
 
-            // Show course selection sheet if no auto-detection and courses exist
-            if session.courseId == nil && !courses.isEmpty {
-                showCourseSheet = true
-            }
-
-            Task {
-                _ = await PostProcessingOrchestrator.shared.process(
-                    session: session,
-                    appState: appState,
-                    fromStage: .finalizing
-                )
-            }
-        }
-    }
-
-    private func tagSessionWithCourse(_ course: Course) {
-        if var session = appState.currentSession {
-            session.courseId = course.id
-            session.courseName = course.shortName
-            appState.currentSession = session
-            NSLog("[LiveSessionView] Tagged session with course: \(course.name)")
+            PostProcessingOrchestrator.shared.scheduleProcessing(
+                session: session,
+                appState: appState,
+                fromStage: .finalizing
+            )
         }
     }
 

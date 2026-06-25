@@ -19,12 +19,13 @@ struct MultimodalNoteView: View {
 
             // Summary
             if !notes.summary.isEmpty {
-                Text(notes.summary)
-                    .font(.body)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                    .padding()
-                    .background(NoteVConfig.Design.surface)
-                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                MarkdownText(
+                    text: notes.summary,
+                    foregroundColor: NoteVConfig.Design.textSecondary
+                )
+                .padding()
+                .background(NoteVConfig.Design.surface)
+                .cornerRadius(NoteVConfig.Design.cornerRadius)
             }
 
             // Key Takeaways
@@ -41,9 +42,7 @@ struct MultimodalNoteView: View {
                                 .foregroundColor(NoteVConfig.Design.accent)
                                 .padding(.top, 3)
 
-                            Text(takeaway)
-                                .font(.body)
-                                .foregroundColor(NoteVConfig.Design.textPrimary)
+                            MarkdownText(text: takeaway)
                         }
                     }
                 }
@@ -79,10 +78,7 @@ struct MultimodalNoteView: View {
                                     : NoteVConfig.Design.textPrimary)
                         }
 
-                        Text(section.content)
-                            .font(.body)
-                            .foregroundColor(NoteVConfig.Design.textPrimary)
-                            .lineSpacing(4)
+                        MarkdownText(text: section.content, lineSpacing: 4)
 
                         // Section images
                         ForEach(section.images) { image in

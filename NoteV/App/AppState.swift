@@ -109,6 +109,9 @@ final class AppState: ObservableObject {
     /// Non-fatal warnings from the last post-processing run (e.g. polish skipped).
     @Published var processingWarnings: [String] = []
 
+    /// Set when ending a session that still needs a course tag; consumed by SessionResultView.
+    @Published var shouldShowCourseSelection = false
+
     // MARK: - Past Sessions
 
     @Published var pastSessions: [SessionData] = []
@@ -147,6 +150,16 @@ final class AppState: ObservableObject {
         sessionStatus = .idle
         currentSession = nil
         generatedNotes = nil
+        shouldShowCourseSelection = false
+        clearLiveCaptureState()
+        extractedTodos = []
+        videoRecordingWarning = nil
+        processingWarnings = []
+        NSLog("[AppState] State reset to idle")
+    }
+
+    /// Clears transient live-recording UI state while preserving session data and processing status.
+    func clearLiveCaptureState() {
         liveTranscriptHint = nil
         liveTranscriptStatus = .idle
         liveTranscriptWarning = nil
@@ -157,11 +170,18 @@ final class AppState: ObservableObject {
         elapsedTime = 0
         latestFrameData = nil
         bookmarkTimestamps = []
-        extractedTodos = []
         autoBookmarkCount = 0
         latestAutoBookmarkPhrase = nil
-        videoRecordingWarning = nil
-        processingWarnings = []
-        NSLog("[AppState] State reset to idle")
+        NSLog("[AppState] Live capture state cleared")
+    }
+
+    /// Swaps the live session screen for the result screen so back navigation skips recording.
+    func transitionToSessionResult(needsCourseSelection: Bool = false) {
+        if !navigationPath.isEmpty {
+            navigationPath.removeLast()
+        }
+        navigationPath.append(NavigationDestination.sessionResult)
+        shouldShowCourseSelection = needsCourseSelection
+        clearLiveCaptureState()
     }
 }

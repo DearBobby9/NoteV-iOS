@@ -62,12 +62,13 @@ struct TimelineNoteView: View {
 
             // Summary
             if !notes.summary.isEmpty {
-                Text(notes.summary)
-                    .font(.body)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                    .padding()
-                    .background(NoteVConfig.Design.surface)
-                    .cornerRadius(NoteVConfig.Design.cornerRadius)
+                MarkdownText(
+                    text: notes.summary,
+                    foregroundColor: NoteVConfig.Design.textSecondary
+                )
+                .padding()
+                .background(NoteVConfig.Design.surface)
+                .cornerRadius(NoteVConfig.Design.cornerRadius)
             }
 
             // Key Takeaways
@@ -84,9 +85,7 @@ struct TimelineNoteView: View {
                                 .foregroundColor(NoteVConfig.Design.accent)
                                 .padding(.top, 3)
 
-                            Text(takeaway)
-                                .font(.body)
-                                .foregroundColor(NoteVConfig.Design.textPrimary)
+                            MarkdownText(text: takeaway)
                         }
                     }
                 }
@@ -254,11 +253,7 @@ struct TimelineNoteView: View {
     private func textBlock(_ text: String, isBookmark: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if isBookmark {
-                Text(text)
-                    .font(.system(size: 16))
-                    .foregroundColor(NoteVConfig.Design.textPrimary)
-                    .lineSpacing(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                MarkdownText(text: text, font: .system(size: 16), lineSpacing: 10)
                     .padding(12)
                     .background(NoteVConfig.Design.bookmarkHighlight.opacity(0.12))
                     .overlay(alignment: .leading) {
@@ -268,11 +263,7 @@ struct TimelineNoteView: View {
                     }
                     .cornerRadius(NoteVConfig.Design.cornerRadius)
             } else {
-                Text(text)
-                    .font(.system(size: 16))
-                    .foregroundColor(NoteVConfig.Design.textPrimary)
-                    .lineSpacing(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                MarkdownText(text: text, font: .system(size: 16), lineSpacing: 10)
             }
         }
     }
@@ -408,8 +399,8 @@ struct SectionPositionKey: PreferenceKey {
             title: "Sample Lecture Notes",
             summary: "This is a preview of generated notes with timeline.",
             sections: [
-                NoteSection(title: "Introduction", content: "Sample content here about the introduction to the topic...", order: 0, startTime: 0, endTime: 120),
-                NoteSection(title: "Main Concepts", content: "The professor discussed key concepts including X, Y, and Z.", order: 1, startTime: 120, endTime: 450),
+                NoteSection(title: "Introduction", content: "Sample content here about the introduction to the topic...\n\n- **Key point**: definitions matter\n- Formulas use *emphasis* when needed", order: 0, startTime: 0, endTime: 120),
+                NoteSection(title: "Main Concepts", content: "The professor discussed key concepts including:\n\n1. Concept X\n2. Concept Y\n3. Concept Z", order: 1, startTime: 120, endTime: 450),
                 NoteSection(title: "Bookmarked Highlights", content: "Important moment noted by student.", order: 2, startTime: 300, endTime: 360, isBookmarkSection: true)
             ],
             keyTakeaways: ["First key point", "Second key point"]

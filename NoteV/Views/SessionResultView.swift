@@ -17,7 +17,10 @@ struct SessionResultView: View {
     @State private var rawSegments: [TranscriptSegment] = []
     @State private var exportError: String?
     @State private var showChat = false
+    @State private var showCourseSheet = false
     @State private var videoPlayer: AVPlayer?
+
+    private let courseStore = CourseStore()
 
     enum ResultTab: String, CaseIterable {
         case video = "Video"
@@ -49,9 +52,8 @@ struct SessionResultView: View {
                     videoWarningBanner(warning)
                 }
 
-                ProcessingStageBanner()
+                ProcessingStageBanner(onCancel: cancelProcessing)
 
-                // Tab picker
                 Picker("View", selection: $selectedTab) {
                     ForEach(visibleTabs, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
@@ -59,25 +61,25 @@ struct SessionResultView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, NoteVConfig.Design.padding)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
 
-                // Content
-                switch selectedTab {
-                case .video:
-                    videoContent
-                case .timeline:
-                    timelineContent
-                case .aiNotes:
-                    aiNotesContent
-                case .tasks:
-                    tasksContent
+                Group {
+                    switch selectedTab {
+                    case .video:
+                        videoContent
+                    case .timeline:
+                        timelineContent
+                    case .aiNotes:
+                        aiNotesContent
+                    case .tasks:
+                        tasksContent
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Bottom action bar
                 actionBar
             }
 
-            // Floating chat button
             if appState.sessionStatus == .complete, appState.currentSession != nil {
                 VStack {
                     Spacer()
@@ -93,7 +95,7 @@ struct SessionResultView: View {
                                 .shadow(color: NoteVConfig.Design.accent.opacity(0.4), radius: 8, y: 4)
                         }
                         .padding(.trailing, NoteVConfig.Design.padding)
-                        .padding(.bottom, 80)
+                        .padding(.bottom, appState.isPostProcessing ? 72 : 88)
                     }
                 }
             }
@@ -101,7 +103,13 @@ struct SessionResultView: View {
         .navigationTitle(appState.currentSession?.metadata.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .navigationBarBackButtonHidden(appState.isPostProcessing)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: goHome) {
+                    Label("Home", systemImage: "house")
+                }
+            }
+        }
         .onAppear {
             if let session = appState.currentSession {
                 rawSegments = session.transcriptSegments
@@ -113,6 +121,19 @@ struct SessionResultView: View {
             } else if !visibleTabs.contains(selectedTab) {
                 selectedTab = visibleTabs.first ?? .timeline
             }
+            if !isBrowsingPastSession, appState.shouldShowCourseSelection {
+                showCourseSheet = true
+                appState.shouldShowCourseSelection = false
+            }
+        }
+        .sheet(isPresented: $showCourseSheet) {
+            PostRecordingCourseSheet(
+                courses: courseStore.loadAll(),
+                onSelect: { course in
+                    tagSessionWithCourse(course)
+                },
+                onSkip: {}
+            )
         }
         .onDisappear {
             videoPlayer?.pause()
@@ -143,8 +164,8 @@ struct SessionResultView: View {
         if let url = sessionVideoURL {
             if let player = videoPlayer {
                 VideoPlayer(player: player)
-                    .aspectRatio(16 / 9, contentMode: .fit)
-                    .padding(.horizontal, NoteVConfig.Design.padding)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(edges: .horizontal)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -162,43 +183,40 @@ struct SessionResultView: View {
     }
 
     private func videoWarningBanner(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
                 .foregroundColor(NoteVConfig.Design.bookmarkHighlight)
             Text(message)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundColor(NoteVConfig.Design.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(NoteVConfig.Design.surface)
         .cornerRadius(NoteVConfig.Design.cornerRadius)
         .padding(.horizontal, NoteVConfig.Design.padding)
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
 
     // MARK: - Timeline Tab (Layer 1)
 
     @ViewBuilder
     private var timelineContent: some View {
-        if appState.isPostProcessing {
-            processingProgressView
-        } else if appState.sessionStatus == .polishing {
-            polishingProgressView
-        } else if let transcript = appState.currentSession?.polishedTranscript, !transcript.segments.isEmpty {
+        if let transcript = appState.currentSession?.polishedTranscript, !transcript.segments.isEmpty {
             TranscriptTimelineView(
                 transcript: transcript,
                 sessionId: appState.currentSession?.id
             )
-        } else if case .error = appState.sessionStatus {
-            // Polishing failed — show raw transcript as fallback
-            rawTranscriptFallback(showErrorBanner: true)
         } else if !rawSegments.isEmpty {
-            // No polished transcript (old session) — show raw transcript
-            rawTranscriptFallback(showErrorBanner: false)
+            rawTranscriptFallback(showErrorBanner: showsTranscriptWarning)
+        } else if appState.isPostProcessing || appState.sessionStatus == .polishing {
+            compactProcessingState
+        } else if case .error = appState.sessionStatus {
+            rawTranscriptFallback(showErrorBanner: true)
         } else {
-            // No transcript at all
             placeholderView(
                 icon: "text.alignleft",
                 title: "No transcript available",
@@ -211,14 +229,15 @@ struct SessionResultView: View {
 
     @ViewBuilder
     private var aiNotesContent: some View {
-        if appState.isPostProcessing {
-            processingProgressView
-        } else if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes {
-            notesGeneratingView
-        } else if let notes = appState.generatedNotes {
+        if let notes = appState.generatedNotes {
             TimelineNoteView(notes: notes, sessionId: appState.currentSession?.id)
         } else if case .error(let message) = appState.sessionStatus {
             errorView(message: message)
+        } else if appState.isPostProcessing
+                    || appState.sessionStatus == .polishing
+                    || appState.sessionStatus == .generatingNotes
+                    || appState.sessionStatus == .analyzingSlides {
+            compactProcessingState
         } else {
             placeholderView(
                 icon: "doc.text",
@@ -232,11 +251,7 @@ struct SessionResultView: View {
 
     @ViewBuilder
     private var tasksContent: some View {
-        if appState.isPostProcessing {
-            processingProgressView
-        } else if appState.sessionStatus == .polishing || appState.sessionStatus == .generatingNotes || appState.sessionStatus == .extractingTodos {
-            todosExtractingView
-        } else if !appState.extractedTodos.isEmpty {
+        if !appState.extractedTodos.isEmpty {
             TasksTabView(
                 todos: appState.extractedTodos,
                 sessionId: appState.currentSession?.id,
@@ -245,6 +260,12 @@ struct SessionResultView: View {
                     exportTodosToReminders(items)
                 }
             )
+        } else if appState.isPostProcessing
+                    || appState.sessionStatus == .polishing
+                    || appState.sessionStatus == .generatingNotes
+                    || appState.sessionStatus == .extractingTodos
+                    || appState.sessionStatus == .analyzingSlides {
+            compactProcessingState
         } else {
             placeholderView(
                 icon: "checklist",
@@ -254,155 +275,53 @@ struct SessionResultView: View {
         }
     }
 
-    // MARK: - TODOs Extracting Progress
+    // MARK: - Compact Processing State
 
-    private var todosExtractingView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
+    private var compactProcessingState: some View {
+        VStack(spacing: 14) {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
-                .scaleEffect(1.5)
+                .scaleEffect(1.2)
 
-            Text(todosProgressText)
-                .font(.title3)
-                .fontWeight(.medium)
-                .foregroundColor(NoteVConfig.Design.textPrimary)
-
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(NoteVConfig.Design.accent)
-                        .frame(width: 8, height: 8)
-                        .opacity(0.3)
-                        .animation(
-                            .easeInOut(duration: 0.6)
-                                .repeatForever()
-                                .delay(Double(index) * 0.2),
-                            value: appState.sessionStatus
-                        )
-                }
-            }
-
-            Spacer()
-        }
-    }
-
-    private var todosProgressText: String {
-        switch appState.sessionStatus {
-        case .finalizing: return "Finalizing session…"
-        case .extractingFrames: return "Extracting frames from video…"
-        case .polishing: return "Polishing transcript..."
-        case .analyzingSlides: return "Analyzing slides..."
-        case .generatingNotes: return "Generating notes..."
-        case .extractingTodos: return "Extracting action items..."
-        default: return "Processing..."
-        }
-    }
-
-    // MARK: - Shared Processing Progress
-
-    private var processingProgressView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
-                .scaleEffect(1.5)
-            Text(appState.processingStageLabel ?? todosProgressText)
-                .font(.title3)
-                .fontWeight(.medium)
+            Text(appState.processingStageLabel ?? "Processing…")
+                .font(.headline)
                 .foregroundColor(NoteVConfig.Design.textPrimary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
-        }
-    }
 
-    // MARK: - Polishing Progress
+            Text("You can keep browsing or go home anytime.")
+                .font(.caption)
+                .foregroundColor(NoteVConfig.Design.textSecondary)
+                .multilineTextAlignment(.center)
 
-    private var polishingProgressView: some View {
-        VStack(spacing: 24) {
-            Spacer()
+            HStack(spacing: 12) {
+                Button(action: goHome) {
+                    Text("Go Home")
+                        .font(.callout.weight(.medium))
+                        .foregroundColor(NoteVConfig.Design.accent)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(NoteVConfig.Design.surface)
+                        .cornerRadius(NoteVConfig.Design.cornerRadius)
+                }
 
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
-                .scaleEffect(1.5)
-
-            Text("Polishing Transcript...")
-                .font(.title3)
-                .fontWeight(.medium)
-                .foregroundColor(NoteVConfig.Design.textPrimary)
-
-            if let session = appState.currentSession {
-                Text("Cleaning up \(session.transcriptSegments.filter { $0.isFinal }.count) segments")
-                    .font(.subheadline)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-
-            // Animated dots
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(NoteVConfig.Design.accent)
-                        .frame(width: 8, height: 8)
-                        .opacity(0.3)
-                        .animation(
-                            .easeInOut(duration: 0.6)
-                                .repeatForever()
-                                .delay(Double(index) * 0.2),
-                            value: appState.sessionStatus
-                        )
+                Button(action: cancelProcessing) {
+                    Text("Stop Processing")
+                        .font(.callout.weight(.medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(NoteVConfig.Design.cornerRadius)
                 }
             }
-
-            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 32)
     }
 
-    // MARK: - Notes Generating Progress
-
-    private var notesGeneratingView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: NoteVConfig.Design.accent))
-                .scaleEffect(1.5)
-
-            Text(appState.sessionStatus == .polishing
-                 ? "Polishing transcript first..."
-                 : "Generating AI Notes...")
-                .font(.title3)
-                .fontWeight(.medium)
-                .foregroundColor(NoteVConfig.Design.textPrimary)
-
-            if let session = appState.currentSession {
-                Text("Analyzing \(session.frames.count) frames and \(session.transcriptSegments.count) segments")
-                    .font(.subheadline)
-                    .foregroundColor(NoteVConfig.Design.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(NoteVConfig.Design.accent)
-                        .frame(width: 8, height: 8)
-                        .opacity(0.3)
-                        .animation(
-                            .easeInOut(duration: 0.6)
-                                .repeatForever()
-                                .delay(Double(index) * 0.2),
-                            value: appState.sessionStatus
-                        )
-                }
-            }
-
-            Spacer()
-        }
+    private var showsTranscriptWarning: Bool {
+        if case .error = appState.sessionStatus { return true }
+        return false
     }
 
     // MARK: - Raw Transcript Fallback
@@ -410,33 +329,38 @@ struct SessionResultView: View {
     private func rawTranscriptFallback(showErrorBanner: Bool) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
-                Text(showErrorBanner
-                     ? "Transcript polishing failed — showing raw transcript"
-                     : "Raw transcript")
-                    .font(.caption)
-                    .foregroundColor(showErrorBanner ? .orange : NoteVConfig.Design.textSecondary)
-                    .padding(.horizontal, NoteVConfig.Design.padding)
-                    .padding(.top, 8)
-
-                if !rawSegments.isEmpty {
-                    ForEach(rawSegments) { segment in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(formatTimestamp(segment.startTime))
-                                .font(.caption2)
-                                .monospacedDigit()
-                                .foregroundColor(NoteVConfig.Design.textSecondary)
-                                .frame(width: 40, alignment: .trailing)
-
-                            Text(segment.text)
-                                .font(.body)
-                                .foregroundColor(NoteVConfig.Design.textPrimary)
-                        }
+                if showErrorBanner {
+                    Text("Transcript polishing failed — showing raw transcript")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                         .padding(.horizontal, NoteVConfig.Design.padding)
+                        .padding(.top, 8)
+                } else if appState.isPostProcessing {
+                    Text("Live transcript — polishing in progress")
+                        .font(.caption)
+                        .foregroundColor(NoteVConfig.Design.textSecondary)
+                        .padding(.horizontal, NoteVConfig.Design.padding)
+                        .padding(.top, 8)
+                }
+
+                ForEach(rawSegments) { segment in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(formatTimestamp(segment.startTime))
+                            .font(.caption2)
+                            .monospacedDigit()
+                            .foregroundColor(NoteVConfig.Design.textSecondary)
+                            .frame(width: 40, alignment: .trailing)
+
+                        Text(segment.text)
+                            .font(.body)
+                            .foregroundColor(NoteVConfig.Design.textPrimary)
                     }
+                    .padding(.horizontal, NoteVConfig.Design.padding)
                 }
             }
             .padding(.vertical, 12)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Error View
@@ -460,10 +384,7 @@ struct SessionResultView: View {
                 .padding(.horizontal, 40)
 
             HStack(spacing: 16) {
-                Button(action: {
-                    appState.navigationPath = NavigationPath()
-                    appState.reset()
-                }) {
+                Button(action: goHome) {
                     Text("Back to Home")
                         .font(.callout)
                         .fontWeight(.medium)
@@ -497,11 +418,9 @@ struct SessionResultView: View {
     // MARK: - Placeholder
 
     private func placeholderView(icon: String, title: String, detail: String?) -> some View {
-        VStack(spacing: 16) {
-            Spacer()
-
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 48))
+                .font(.system(size: 40))
                 .foregroundColor(NoteVConfig.Design.textSecondary)
 
             Text(title)
@@ -515,15 +434,14 @@ struct SessionResultView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
-
-            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Action Bar
 
     private var actionBar: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             if appState.generatedNotes != nil || (appState.sessionStatus == .complete && !appState.isPostProcessing) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
@@ -559,33 +477,22 @@ struct SessionResultView: View {
                 }
             }
 
-            Button(action: {
-                if isBrowsingPastSession {
-                    if !appState.navigationPath.isEmpty {
-                        appState.navigationPath.removeLast()
-                    }
-                } else {
-                    appState.navigationPath = NavigationPath()
-                    appState.reset()
-                }
-            }) {
+            Button(action: goHome) {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle")
-                    Text("Done")
+                    Image(systemName: appState.isPostProcessing ? "house" : "checkmark.circle")
+                    Text(appState.isPostProcessing ? "Go Home" : "Done")
                 }
                 .font(.callout)
                 .fontWeight(.semibold)
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 12)
                 .background(NoteVConfig.Design.accent)
                 .cornerRadius(NoteVConfig.Design.cornerRadius)
             }
-            .disabled(appState.isPostProcessing)
-            .opacity(appState.isPostProcessing ? 0.5 : 1.0)
             .padding(.horizontal, NoteVConfig.Design.padding)
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         .background(NoteVConfig.Design.background)
     }
 
@@ -606,6 +513,36 @@ struct SessionResultView: View {
     }
 
     // MARK: - Actions
+
+    private func goHome() {
+        videoPlayer?.pause()
+        videoPlayer = nil
+
+        if isBrowsingPastSession {
+            if !appState.navigationPath.isEmpty {
+                appState.navigationPath.removeLast()
+            }
+        } else if appState.isPostProcessing {
+            appState.navigationPath = NavigationPath()
+        } else {
+            appState.navigationPath = NavigationPath()
+            appState.reset()
+        }
+    }
+
+    private func tagSessionWithCourse(_ course: Course) {
+        if var session = appState.currentSession {
+            session.courseId = course.id
+            session.courseName = course.shortName
+            appState.currentSession = session
+            try? sessionStore.save(session: session)
+            NSLog("[SessionResultView] Tagged session with course: \(course.name)")
+        }
+    }
+
+    private func cancelProcessing() {
+        PostProcessingOrchestrator.shared.cancelProcessing(appState: appState)
+    }
 
     private func retryGeneration() {
         guard let session = appState.currentSession else { return }
@@ -633,13 +570,11 @@ struct SessionResultView: View {
         cleared.polishedTranscript = nil
         appState.currentSession = cleared
 
-        Task {
-            _ = await PostProcessingOrchestrator.shared.process(
-                session: cleared,
-                appState: appState,
-                fromStage: reprocessStartStage(for: session)
-            )
-        }
+        PostProcessingOrchestrator.shared.scheduleProcessing(
+            session: cleared,
+            appState: appState,
+            fromStage: reprocessStartStage(for: session)
+        )
     }
 
     private func reprocessStartStage(for session: SessionData) -> PostProcessingStage {

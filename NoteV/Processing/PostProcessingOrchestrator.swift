@@ -57,8 +57,42 @@ final class PostProcessingOrchestrator {
     private(set) var isProcessing = false
 
     private let sessionStore = SessionStore()
+    private var activeTask: Task<Void, Never>?
 
     // MARK: - Process
+
+    /// Starts post-processing on a detached task so it can be cancelled from the UI.
+    func scheduleProcessing(
+        session: SessionData,
+        appState: AppState,
+        fromStage: PostProcessingStage = .finalizing
+    ) {
+        activeTask?.cancel()
+        activeTask = Task {
+            _ = await process(session: session, appState: appState, fromStage: fromStage)
+            activeTask = nil
+        }
+    }
+
+    /// Stops the pipeline between stages and keeps whatever results are already available.
+    func cancelProcessing(appState: AppState) {
+        activeTask?.cancel()
+        activeTask = nil
+        isProcessing = false
+
+        guard appState.sessionStatus.isPostProcessing else { return }
+
+        if !appState.processingWarnings.contains(where: { $0.contains("Processing stopped") }) {
+            appState.processingWarnings.append("Processing stopped — showing available results")
+        }
+        appState.sessionStatus = .complete
+
+        if let session = appState.currentSession {
+            try? sessionStore.save(session: session)
+        }
+
+        NSLog("[PostProcessingOrchestrator] Processing cancelled by user")
+    }
 
     func process(
         session: SessionData,
@@ -92,6 +126,16 @@ final class PostProcessingOrchestrator {
         }
 
         for stage in stages[startIndex...] {
+            if Task.isCancelled {
+                return finishCancelled(
+                    session: updatedSession,
+                    notes: notes,
+                    todos: todos,
+                    warnings: &warnings,
+                    appState: appState
+                )
+            }
+
             await setStage(stage, appState: appState)
 
             switch stage {
@@ -256,6 +300,30 @@ final class PostProcessingOrchestrator {
     private func setStage(_ stage: PostProcessingStage, appState: AppState) async {
         appState.sessionStatus = stage.sessionStatus
         NSLog("[PostProcessingOrchestrator] Stage: \(stage.rawValue)")
+    }
+
+    private func finishCancelled(
+        session: SessionData,
+        notes: StructuredNotes?,
+        todos: [TodoItem],
+        warnings: inout [String],
+        appState: AppState
+    ) -> PostProcessingResult {
+        isProcessing = false
+        if !warnings.contains(where: { $0.contains("Processing stopped") }) {
+            warnings.append("Processing stopped — showing available results")
+        }
+        appState.processingWarnings = warnings
+        appState.sessionStatus = .complete
+        try? sessionStore.save(session: session)
+        NSLog("[PostProcessingOrchestrator] Processing cancelled mid-pipeline")
+        return PostProcessingResult(
+            session: session,
+            notes: notes,
+            todos: todos,
+            warnings: warnings,
+            failedStage: nil
+        )
     }
 
     /// Merge course tag from AppState if user selected one during the post-recording sheet.

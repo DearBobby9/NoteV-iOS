@@ -217,7 +217,11 @@ struct ChatView: View {
                             Text(message.content)
                                 .foregroundColor(textColor)
                         } else {
-                            Text(markdownAttributedString(message.content, foregroundColor: textColor))
+                            Text(MarkdownRenderer.attributedString(
+                                from: message.content,
+                                foregroundColor: textColor,
+                                style: .inlineOnly
+                            ))
                         }
                     }
                     .font(.body)
@@ -545,20 +549,4 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Markdown Rendering
-
-    private func markdownAttributedString(_ text: String, foregroundColor: Color) -> AttributedString {
-        do {
-            var result = try AttributedString(
-                markdown: text,
-                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-            )
-            result.foregroundColor = foregroundColor
-            return result
-        } catch {
-            var fallback = AttributedString(text)
-            fallback.foregroundColor = foregroundColor
-            return fallback
-        }
-    }
 }
