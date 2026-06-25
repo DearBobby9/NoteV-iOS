@@ -242,7 +242,6 @@ struct StartSessionView: View {
             // Check permissions before starting recording
             let permissionsGranted = await checkPermissions(for: source)
             guard permissionsGranted else {
-                appState.sessionStatus = .idle
                 return
             }
 

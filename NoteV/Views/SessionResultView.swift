@@ -36,6 +36,15 @@ struct SessionResultView: View {
         return sessionStore.usableVideoURL(for: session)
     }
 
+    /// Prefer live session transcript (updates after MP4 recovery); fall back to onAppear snapshot.
+    private var timelineRawSegments: [TranscriptSegment] {
+        let live = appState.currentSession?.transcriptSegments ?? []
+        let source = live.isEmpty ? rawSegments : live
+        return source
+            .filter(\.isFinal)
+            .sorted { $0.startTime < $1.startTime }
+    }
+
     private var visibleTabs: [ResultTab] {
         sessionVideoURL != nil ? ResultTab.allCases : [.timeline, .aiNotes, .tasks]
     }
@@ -208,7 +217,7 @@ struct SessionResultView: View {
                 transcript: transcript,
                 sessionId: appState.currentSession?.id
             )
-        } else if !rawSegments.isEmpty {
+        } else if !timelineRawSegments.isEmpty {
             rawTranscriptFallback(showErrorBanner: showsTranscriptWarning)
         } else if appState.isPostProcessing || appState.sessionStatus == .polishing {
             compactProcessingState
@@ -341,7 +350,7 @@ struct SessionResultView: View {
                         .padding(.top, 8)
                 }
 
-                ForEach(rawSegments) { segment in
+                ForEach(timelineRawSegments) { segment in
                     HStack(alignment: .top, spacing: 8) {
                         Text(formatTimestamp(segment.startTime))
                             .font(.caption2)

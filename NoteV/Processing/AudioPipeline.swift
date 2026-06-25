@@ -288,6 +288,8 @@ final class AudioPipeline {
     }
 
     private func activateDeepgramService(_ service: DeepgramService, coordinator: DeepgramFeedCoordinator) async -> Bool {
+        guard await service.isConnected else { return false }
+
         deepgramService = service
 
         if coordinator.markBridgeStarted() {
@@ -342,11 +344,11 @@ final class AudioPipeline {
         for attempt in 1...maxAttempts {
             if Task.isCancelled { return false }
             let service = DeepgramService()
-            deepgramService = service
-            coordinator.setService(service)
 
             do {
                 try await service.connect()
+                deepgramService = service
+                coordinator.setService(service)
                 await service.setOnConnectionLost { reason in
                     NSLog("[AudioPipeline] Deepgram connection lost callback: \(reason)")
                 }
@@ -354,9 +356,7 @@ final class AudioPipeline {
                 return true
             } catch {
                 NSLog("[AudioPipeline] ERROR: Deepgram connect failed (attempt \(attempt)): \(error.localizedDescription)")
-                coordinator.setService(nil)
                 await service.disconnect()
-                deepgramService = nil
                 if attempt < maxAttempts {
                     try? await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
                 }

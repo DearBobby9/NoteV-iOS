@@ -175,6 +175,8 @@ final class GlassesCaptureProvider: CaptureProvider {
         isAwaitingFirstStream = true
 
         // Meta DAT: HFP must be configured before starting the camera stream.
+        sessionStartTime = Date()
+
         do {
             try configureAudioEngine()
             try audioEngine.start()
@@ -186,11 +188,12 @@ final class GlassesCaptureProvider: CaptureProvider {
             }
             NSLog("[GlassesCaptureProvider] HFP route active — starting DAT video stream")
         } catch {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+            sessionStartTime = nil
             NSLog("[GlassesCaptureProvider] ERROR starting glasses mic (HFP): \(error.localizedDescription)")
             throw error
         }
-
-        sessionStartTime = Date()
 
         await streamSession.start()
         NSLog("[GlassesCaptureProvider] StreamSession started")

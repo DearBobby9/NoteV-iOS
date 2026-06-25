@@ -53,14 +53,14 @@ final class SessionFrameExtractor {
             throw ExtractionError.noFramesExtracted
         }
 
-        try imageStore.deletePeriodicFrameImages(sessionId: session.id, preserving: bookmarkFrames.map(\.imageFilename))
-
         var updated = session
         for frame in extraction.frames {
             if let data = frame.imageData {
                 try imageStore.saveImage(data, filename: frame.imageFilename, sessionId: session.id)
             }
         }
+
+        try imageStore.deletePeriodicFrameImages(sessionId: session.id, preserving: bookmarkFrames.map(\.imageFilename))
 
         var storedFrames = extraction.frames.map { frame -> TimestampedFrame in
             var copy = frame
@@ -108,7 +108,8 @@ final class SessionFrameExtractor {
         frames.reserveCapacity(timestamps.count)
 
         for (index, timestamp) in timestamps.enumerated() {
-            let cmTime = CMTime(seconds: timestamp, preferredTimescale: 600)
+            let safeTime = min(timestamp, max(0, duration - 0.05))
+            let cmTime = CMTime(seconds: safeTime, preferredTimescale: 600)
             let cgImage = try generator.copyCGImage(at: cmTime, actualTime: nil)
             guard let jpegData = UIImage(cgImage: cgImage).jpegData(
                 compressionQuality: NoteVConfig.Storage.jpegCompressionQuality
@@ -140,7 +141,7 @@ final class SessionFrameExtractor {
         let interval = NoteVConfig.FrameExtraction.coarseScanInterval
         var time: TimeInterval = 0
 
-        while time <= duration {
+        while time < duration {
             let cmTime = CMTime(seconds: time, preferredTimescale: 600)
             let cgImage = try generator.copyCGImage(at: cmTime, actualTime: nil)
             if let gray = FrameChangeDetector.grayscale(from: cgImage) {

@@ -7,16 +7,18 @@ import MWDATCore
 struct NoteVApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var sessionRecorder = SessionRecorder()
-    @StateObject private var captureManager = CaptureManager()
+    @StateObject private var captureManager: CaptureManager
 
     init() {
-        // Configure Meta DAT SDK (VisionClaw pattern)
+        // Configure Meta DAT SDK before any CaptureManager / GlassesCaptureProvider uses Wearables.shared.
         do {
             try Wearables.configure()
             NSLog("[NoteVApp] Meta DAT SDK configured")
         } catch {
             NSLog("[NoteVApp] DAT SDK configure failed: \(error.localizedDescription)")
         }
+
+        _captureManager = StateObject(wrappedValue: CaptureManager())
 
         NSLog("[NoteVApp] App initialized — LLM configured: \(SettingsManager.shared.isConfigured)")
     }

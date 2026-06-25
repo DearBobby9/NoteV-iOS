@@ -72,7 +72,7 @@ enum AudioSampleBufferFactory {
 
         var sampleBuffer: CMSampleBuffer?
         var timing = CMSampleTimingInfo(
-            duration: CMTime(value: CMTimeValue(frameCount), timescale: CMTimeScale(sampleRate)),
+            duration: CMTime(value: 1, timescale: CMTimeScale(sampleRate)),
             presentationTimeStamp: presentationTime,
             decodeTimeStamp: .invalid
         )

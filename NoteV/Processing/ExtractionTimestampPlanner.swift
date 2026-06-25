@@ -19,7 +19,7 @@ enum ExtractionTimestampPlanner {
         var timestamps: [TimeInterval] = [0]
 
         var anchor = baseInterval
-        while anchor <= duration {
+        while anchor < duration {
             timestamps.append(anchor)
             anchor += baseInterval
         }
@@ -32,7 +32,7 @@ enum ExtractionTimestampPlanner {
             }
         }
 
-        timestamps.append(contentsOf: sceneChangeTimes.filter { $0 >= 0 && $0 <= duration })
+        timestamps.append(contentsOf: sceneChangeTimes.filter { $0 >= 0 && $0 < duration })
         timestamps.sort()
 
         var merged: [TimeInterval] = []

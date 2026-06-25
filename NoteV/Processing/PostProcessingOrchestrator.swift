@@ -95,8 +95,6 @@ final class PostProcessingOrchestrator {
     /// Stops the pipeline between stages and keeps whatever results are already available.
     func cancelProcessing(appState: AppState) {
         activeTask?.cancel()
-        activeTask = nil
-        isProcessing = false
 
         guard appState.sessionStatus.isPostProcessing else { return }
 
