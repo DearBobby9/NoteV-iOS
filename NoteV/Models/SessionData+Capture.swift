@@ -37,10 +37,10 @@ extension SessionData {
 extension SessionStore {
 
     func videoExists(for sessionId: UUID) -> Bool {
-        FileManager.default.fileExists(atPath: videoURL(for: sessionId).path)
+        usableVideoURL(for: sessionId) != nil
     }
 
-    /// Playable session MP4 on disk, regardless of metadata flags (checkpoints omit `videoFilename`).
+    /// Session MP4 on disk, regardless of metadata flags (checkpoints omit `videoFilename`).
     func usableVideoURL(for sessionId: UUID) -> URL? {
         let url = videoURL(for: sessionId)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil

@@ -614,40 +614,22 @@ final class SessionRecorder: ObservableObject {
               let sessionStartTime else { return }
 
         let duration = Date().timeIntervalSince(sessionStartTime)
-        let metadata = SessionMetadata(
-            sessionId: sessionId,
-            startDate: sessionStartTime,
-            endDate: nil,
-            captureSource: captureManager?.activeSource ?? .phone,
-            title: "Recording in progress",
-            durationSeconds: duration,
-            videoFilename: nil
-        )
-
-        let frames = collectedFrames.map { frame -> TimestampedFrame in
-            var copy = frame
-            copy.imageData = nil
-            return copy
-        }
-
         let existingCourse = try? sessionStore.load(sessionId: sessionId)
 
-        let checkpoint = SessionData(
-            metadata: metadata,
-            frames: frames,
+        let checkpoint = RecordingCheckpointBuilder.makeSessionData(
+            sessionId: sessionId,
+            sessionStartTime: sessionStartTime,
+            duration: duration,
+            captureSource: captureManager?.activeSource ?? .phone,
+            frames: collectedFrames,
             transcriptSegments: deduplicateSegments(collectedSegments),
             bookmarks: collectedBookmarks,
-            polishedTranscript: nil,
-            notes: nil,
-            todos: nil,
-            slideAnalysis: nil,
-            courseId: existingCourse?.courseId,
-            courseName: existingCourse?.courseName
+            existingCourse: existingCourse
         )
 
         do {
             try sessionStore.save(session: checkpoint)
-            NSLog("[SessionRecorder] Checkpoint saved — \(frames.count) frames, \(checkpoint.transcriptSegments.count) segments, \(String(format: "%.0f", duration))s")
+            NSLog("[SessionRecorder] Checkpoint saved — \(checkpoint.frames.count) frames, \(checkpoint.transcriptSegments.count) segments, \(String(format: "%.0f", duration))s")
         } catch {
             NSLog("[SessionRecorder] ERROR saving checkpoint: \(error.localizedDescription)")
         }
@@ -696,5 +678,23 @@ final class SessionRecorder: ObservableObject {
         }
         monitor.startMonitoringGlassesHFP()
         audioRouteMonitor = monitor
+    }
+
+    // MARK: - Test seam
+
+    /// Arms in-memory recording state so `saveRecordingCheckpoint()` can run without capture hardware.
+    internal func armRecordingCheckpointState(
+        sessionId: UUID,
+        sessionStartTime: Date = Date().addingTimeInterval(-30),
+        frames: [TimestampedFrame] = [],
+        transcriptSegments: [TranscriptSegment] = [],
+        bookmarks: [Bookmark] = []
+    ) {
+        self.sessionId = sessionId
+        self.sessionStartTime = sessionStartTime
+        isRecording = true
+        collectedFrames = frames
+        collectedSegments = transcriptSegments
+        collectedBookmarks = bookmarks
     }
 }

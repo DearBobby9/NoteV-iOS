@@ -46,6 +46,14 @@ struct PostProcessingResult: Sendable {
     let failedStage: PostProcessingStage?
 }
 
+// MARK: - SessionTranscriptExtracting
+
+protocol SessionTranscriptExtracting: Sendable {
+    func extract(from videoURL: URL) async throws -> [TranscriptSegment]
+}
+
+extension SessionTranscriptExtractor: SessionTranscriptExtracting {}
+
 // MARK: - PostProcessingOrchestrator
 
 /// Runs the staged post-recording pipeline: finalize → extract frames → polish → slides → notes → todos.
@@ -57,7 +65,12 @@ final class PostProcessingOrchestrator {
     private(set) var isProcessing = false
 
     private let sessionStore = SessionStore()
+    private let transcriptExtractor: any SessionTranscriptExtracting
     private var activeTask: Task<Void, Never>?
+
+    init(transcriptExtractor: any SessionTranscriptExtracting = SessionTranscriptExtractor()) {
+        self.transcriptExtractor = transcriptExtractor
+    }
 
     // MARK: - Process
 
@@ -172,7 +185,6 @@ final class PostProcessingOrchestrator {
                    let videoURL = sessionStore.usableVideoURL(for: updatedSession) {
                         let started = Date()
                         do {
-                            let transcriptExtractor = SessionTranscriptExtractor()
                             let segments = try await transcriptExtractor.extract(from: videoURL)
                             updatedSession.transcriptSegments = segments
                             appState.currentSession = updatedSession

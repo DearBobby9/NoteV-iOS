@@ -115,19 +115,23 @@ final class CaptureResilienceTests: XCTestCase {
         let prior = SessionData(
             metadata: SessionMetadata(sessionId: sessionId, title: "Prior"),
             polishedTranscript: PolishedTranscript(segments: [], modelUsed: "test"),
-            notes: StructuredNotes(title: "Stale notes")
+            notes: StructuredNotes(title: "Stale notes"),
+            courseId: UUID(),
+            courseName: "Biology 101"
         )
         try store.save(session: prior)
 
-        let checkpoint = SessionData(
-            metadata: SessionMetadata(sessionId: sessionId, title: "Recording in progress", videoFilename: nil),
+        let checkpoint = RecordingCheckpointBuilder.makeSessionData(
+            sessionId: sessionId,
+            sessionStartTime: Date().addingTimeInterval(-60),
+            duration: 60,
+            captureSource: .glasses,
+            frames: [],
             transcriptSegments: [
                 TranscriptSegment(startTime: 0, endTime: 1, text: "live", isFinal: true)
             ],
-            polishedTranscript: nil,
-            notes: nil,
-            todos: nil,
-            slideAnalysis: nil
+            bookmarks: [],
+            existingCourse: prior
         )
         try store.save(session: checkpoint)
 
@@ -136,6 +140,42 @@ final class CaptureResilienceTests: XCTestCase {
         XCTAssertNil(loaded.polishedTranscript)
         XCTAssertNil(loaded.slideAnalysis)
         XCTAssertEqual(loaded.transcriptSegments.count, 1)
+        XCTAssertEqual(loaded.courseName, "Biology 101")
+        XCTAssertNotNil(loaded.courseId)
+
+        try? FileManager.default.removeItem(at: store.sessionDirectory(for: sessionId))
+    }
+
+    @MainActor
+    func testSessionRecorderSaveRecordingCheckpointClearsDerivedArtifacts() throws {
+        let store = SessionStore()
+        let sessionId = UUID()
+        let courseId = UUID()
+        let prior = SessionData(
+            metadata: SessionMetadata(sessionId: sessionId, title: "Prior"),
+            polishedTranscript: PolishedTranscript(segments: [], modelUsed: "test"),
+            notes: StructuredNotes(title: "Stale notes"),
+            courseId: courseId,
+            courseName: "Chemistry"
+        )
+        try store.save(session: prior)
+
+        let recorder = SessionRecorder()
+        recorder.armRecordingCheckpointState(
+            sessionId: sessionId,
+            transcriptSegments: [
+                TranscriptSegment(startTime: 0, endTime: 1, text: "checkpoint", isFinal: true)
+            ]
+        )
+        recorder.saveRecordingCheckpoint()
+
+        let loaded = try store.load(sessionId: sessionId)
+        XCTAssertNil(loaded.notes)
+        XCTAssertNil(loaded.polishedTranscript)
+        XCTAssertEqual(loaded.transcriptSegments.count, 1)
+        XCTAssertEqual(loaded.courseName, "Chemistry")
+        XCTAssertEqual(loaded.courseId, courseId)
+        XCTAssertNil(loaded.metadata.videoFilename)
 
         try? FileManager.default.removeItem(at: store.sessionDirectory(for: sessionId))
     }
